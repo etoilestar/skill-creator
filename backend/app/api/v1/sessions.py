@@ -112,6 +112,58 @@ def get_requirement(session_id: str):
         return jsonify({"error": {"code": e.code, "message": e.message}}), 404
 
 
+@sessions_bp.route("/<session_id>/attachments", methods=["POST"])
+def upload_attachment(session_id: str):
+    """
+    上传文件作为会话参考附件。
+
+    上传的文件将被保存到会话附件目录，文本类文件（.txt/.md/.py/.js/.json/.yaml）
+    会提取前 2000 字符作为摘要，在后续 AI 对话中作为上下文注入。
+
+    Request:
+        multipart/form-data，字段名为 file
+
+    限制：
+        - 文件大小 ≤ 10MB
+        - 类型白名单：.txt/.md/.py/.js/.json/.yaml/.yml/.csv/.pdf
+
+    Returns:
+        附件元数据 JSON（filename, path, size, summary, uploaded_at）
+    """
+    ALLOWED_EXTENSIONS = {".txt", ".md", ".py", ".js", ".json", ".yaml", ".yml", ".csv", ".pdf"}
+    MAX_SIZE = 10 * 1024 * 1024  # 10MB
+
+    if "file" not in request.files:
+        return jsonify({"error": {"code": "MISSING_FILE", "message": "缺少 file 字段"}}), 400
+
+    file = request.files["file"]
+    if not file.filename:
+        return jsonify({"error": {"code": "MISSING_FILE", "message": "文件名为空"}}), 400
+
+    from pathlib import Path as _Path
+    ext = _Path(file.filename).suffix.lower()
+    if ext not in ALLOWED_EXTENSIONS:
+        return jsonify({
+            "error": {
+                "code": "UNSUPPORTED_FILE_TYPE",
+                "message": f"不支持的文件类型 '{ext}'，支持：{', '.join(sorted(ALLOWED_EXTENSIONS))}",
+            }
+        }), 400
+
+    file_content = file.read()
+    if len(file_content) > MAX_SIZE:
+        return jsonify({
+            "error": {"code": "FILE_TOO_LARGE", "message": "文件大小超过 10MB 限制"}
+        }), 400
+
+    try:
+        service = SessionService()
+        meta = service.add_attachment(session_id, file.filename, file_content)
+        return jsonify(meta), 201
+    except SessionNotFoundError as e:
+        return jsonify({"error": {"code": e.code, "message": e.message}}), 404
+
+
 @sessions_bp.route("/<session_id>/stream", methods=["POST"])
 def stream_message(session_id: str):
     """

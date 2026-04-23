@@ -267,6 +267,80 @@ completeness_score 的评分标准（0-100）：
             raise SessionNotFoundError(f"会话不存在: {session_id}")
         return session
 
+    def add_attachment(
+        self,
+        session_id: str,
+        filename: str,
+        file_content: bytes,
+    ) -> dict:
+        """
+        将上传的文件保存到会话附件目录，并将元数据追加到 session.attachments。
+
+        文件存储路径：WORKSPACE_BASE_PATH/sessions/{session_id}/attachments/{safe_filename}
+        文本类文件（.txt/.md/.py/.json）会提取前 2000 字符作为摘要，
+        用于后续在 AI 上下文中注入参考信息。
+
+        Args:
+            session_id: 会话 ID
+            filename: 原始文件名
+            file_content: 文件二进制内容
+
+        Returns:
+            附件元数据字典：{filename, path, size, summary, uploaded_at}
+
+        Raises:
+            SessionNotFoundError: 当会话不存在时
+        """
+        from datetime import datetime
+        from pathlib import Path
+
+        from flask import current_app
+
+        session = self.get_session(session_id)
+
+        workspace_base = current_app.config.get("WORKSPACE_BASE_PATH", "/app/workspace")
+        attach_dir = Path(workspace_base) / "sessions" / session_id / "attachments"
+        attach_dir.mkdir(parents=True, exist_ok=True)
+
+        # 净化文件名，只保留文件名部分（防止路径穿越）
+        safe_name = Path(filename).name
+        # 处理文件名冲突：如果同名文件已存在，在文件名后加序号
+        final_path = attach_dir / safe_name
+        counter = 1
+        while final_path.exists():
+            stem = Path(safe_name).stem
+            suffix = Path(safe_name).suffix
+            final_path = attach_dir / f"{stem}_{counter}{suffix}"
+            counter += 1
+
+        final_path.write_bytes(file_content)
+
+        # 对文本类文件提取摘要
+        text_exts = {".txt", ".md", ".py", ".js", ".json", ".yaml", ".yml", ".csv"}
+        summary = ""
+        if final_path.suffix.lower() in text_exts:
+            try:
+                text = file_content.decode("utf-8", errors="replace")
+                summary = text[:2000]
+            except Exception:
+                pass
+
+        meta = {
+            "filename": final_path.name,
+            "original_filename": safe_name,
+            "path": str(final_path),
+            "size": len(file_content),
+            "summary": summary,
+            "uploaded_at": datetime.utcnow().isoformat(),
+        }
+
+        attachments = list(session.attachments or [])
+        attachments.append(meta)
+        session.attachments = attachments
+        db.session.commit()
+
+        return meta
+
     def confirm_and_start_creation(self, session_id: str) -> SkillCreationTask:
         """
         用户确认需求，触发 Skill 创建任务。
@@ -371,6 +445,23 @@ completeness_score 的评分标准（0-100）：
         history = []
         for msg in (session.messages or []):
             history.append(Message(role=msg["role"], content=msg["content"]))
+
+        # 如果会话有附件，在本轮用户消息之前插入一条附件摘要消息
+        attachments = session.attachments or []
+        if attachments:
+            attachment_context_parts = ["用户已上传以下文件作为参考："]
+            for att in attachments:
+                fname = att.get("filename", att.get("original_filename", ""))
+                summary = att.get("summary", "")
+                if summary:
+                    attachment_context_parts.append(
+                        f"\n--- 文件: {fname} ---\n{summary[:500]}"
+                    )
+                else:
+                    attachment_context_parts.append(f"\n- {fname}（二进制文件，无预览）")
+            history.append(Message(role="user", content="\n".join(attachment_context_parts)))
+            history.append(Message(role="assistant", content="好的，我已了解您上传的参考文件，将在后续回答中参考这些内容。"))
+
         history.append(Message(role="user", content=user_message))
 
         # 调用 AI 模型

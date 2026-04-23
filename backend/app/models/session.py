@@ -85,6 +85,12 @@ class ConversationSession(db.Model):
         default=PHASE_GATHERING,
         comment="会话当前阶段：gathering / structuring / creating / done",
     )
+    attachments = db.Column(
+        db.JSON,
+        nullable=True,
+        default=list,
+        comment="会话附件元数据列表，格式：[{filename, path, size, summary, uploaded_at}]",
+    )
     created_at = db.Column(
         db.DateTime,
         nullable=False,
@@ -132,6 +138,7 @@ class ConversationSession(db.Model):
             "requirement_spec": self.requirement_spec,
             "completeness_score": self.completeness_score,
             "phase": self.phase,
+            "attachments": self.attachments or [],
             "can_create": self.completeness_score >= 80,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
