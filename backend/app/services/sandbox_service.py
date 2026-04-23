@@ -42,14 +42,15 @@ class SandboxService:
 
         try:
             import docker
+            import json as _json
             client = docker.from_env()
             code = skill.code
-            input_json = str(sandbox_run.input_data)
+            input_json = _json.dumps(sandbox_run.input_data)
             script = f"""
 import json
 import sys
 
-input_data = {input_json}
+input_data = json.loads({repr(input_json)})
 
 {code}
 """

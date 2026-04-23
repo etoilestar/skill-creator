@@ -1,11 +1,16 @@
+import os
 import json
 from app.tasks.celery_app import celery_app
+
+
+def _get_config_name():
+    return os.environ.get('FLASK_ENV', 'development')
 
 
 @celery_app.task(bind=True, name='skill_tasks.process_session_message')
 def process_session_message(self, session_id, message):
     from app import create_app
-    app = create_app()
+    app = create_app(_get_config_name())
     with app.app_context():
         from app.services.session_service import SessionService
         from app.kernel.skill_creator_adapter import SkillCreatorAdapter
@@ -35,7 +40,7 @@ def process_session_message(self, session_id, message):
 @celery_app.task(bind=True, name='skill_tasks.create_skill_from_session')
 def create_skill_from_session(self, session_id):
     from app import create_app
-    app = create_app()
+    app = create_app(_get_config_name())
     with app.app_context():
         from app.services.skill_service import SkillService
         from app.services.session_service import SessionService
@@ -52,7 +57,7 @@ def create_skill_from_session(self, session_id):
 @celery_app.task(bind=True, name='skill_tasks.run_sandbox_test')
 def run_sandbox_test(self, sandbox_run_id):
     from app import create_app
-    app = create_app()
+    app = create_app(_get_config_name())
     with app.app_context():
         from app.services.sandbox_service import SandboxService
 

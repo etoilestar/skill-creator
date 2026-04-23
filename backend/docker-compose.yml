@@ -1,33 +1,33 @@
 version: '3.9'
 services:
   backend:
-    build: ./backend
+    build: .
     ports:
       - "5000:5000"
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/skillcreator
       - REDIS_URL=redis://redis:6379/0
-      - SECRET_KEY=dev-secret-key
+      - SECRET_KEY=${SECRET_KEY:-dev-secret-key}
       - FLASK_ENV=development
     depends_on:
       - db
       - redis
     volumes:
-      - ./backend:/app
+      - .:/app
     command: flask run --host=0.0.0.0 --port=5000 --reload
 
   worker:
-    build: ./backend
+    build: .
     command: celery -A app.tasks.celery_app:celery_app worker --loglevel=info
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/skillcreator
       - REDIS_URL=redis://redis:6379/0
-      - SECRET_KEY=dev-secret-key
+      - SECRET_KEY=${SECRET_KEY:-dev-secret-key}
     depends_on:
       - db
       - redis
     volumes:
-      - ./backend:/app
+      - .:/app
 
   db:
     image: postgres:16

@@ -7,7 +7,7 @@ services:
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/skillcreator
       - REDIS_URL=redis://redis:6379/0
-      - SECRET_KEY=dev-secret-key
+      - SECRET_KEY=${SECRET_KEY:-dev-secret-key}
       - FLASK_ENV=development
     depends_on:
       - db
@@ -22,7 +22,7 @@ services:
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/skillcreator
       - REDIS_URL=redis://redis:6379/0
-      - SECRET_KEY=dev-secret-key
+      - SECRET_KEY=${SECRET_KEY:-dev-secret-key}
     depends_on:
       - db
       - redis
