@@ -226,7 +226,127 @@ def run_eval_auto(skill_path: Path, evals: list) -> dict:
     return _build_report(skill, results)
 
 
-def _build_report(skill: dict, results: list) -> dict:
+def run_eval_llm(skill_path: Path, evals: list) -> dict:
+    """
+    以 LLM 裁判模式运行评估。
+
+    通过 LLM API 判断每个 prompt 是否会触发该 Skill，
+    适合需要语义级判断（而非关键词匹配）的高精度场景。
+
+    依赖环境变量（均在容器启动时通过 -e 注入）：
+        LLM_API_KEY   : LLM API 密钥（必填）
+        LLM_BASE_URL  : API 基础 URL（可选，默认 OpenAI 官方地址）
+        LLM_MODEL     : 模型名称（可选，默认 gpt-4o-mini）
+
+    如果 openai 库不可用或 LLM 调用失败，自动 fallback 到 run_eval_auto()。
+
+    Args:
+        skill_path: SKILL.md 文件路径
+        evals: 测试用例列表
+
+    Returns:
+        包含评估结果的字典（格式与 run_eval_auto 完全一致）
+    """
+    import os
+
+    api_key = os.environ.get("LLM_API_KEY", "")
+    base_url = os.environ.get("LLM_BASE_URL", "")
+    model = os.environ.get("LLM_MODEL", "gpt-4o-mini")
+
+    if not api_key:
+        print("[llm-judge] LLM_API_KEY 未设置，fallback 到 auto 模式", file=sys.stderr)
+        return run_eval_auto(skill_path, evals)
+
+    skill = parse_skill_md(skill_path)
+    description = skill.get("description", "")
+
+    def _ask_llm(prompt_text: str) -> bool:
+        """调用 LLM 判断 prompt 是否会触发该 Skill，返回布尔值。"""
+        user_content = (
+            f"以下是一个 Skill 的描述：\n{description}\n\n"
+            f"用户输入：{prompt_text}\n\n"
+            "该用户输入是否会触发这个 Skill？只回答 yes 或 no。"
+        )
+        # 优先使用 openai 库
+        try:
+            import openai  # noqa: PLC0415
+            client_kwargs = {"api_key": api_key}
+            if base_url:
+                client_kwargs["base_url"] = base_url
+            client = openai.OpenAI(**client_kwargs)
+            response = client.chat.completions.create(
+                model=model,
+                messages=[{"role": "user", "content": user_content}],
+                max_tokens=5,
+                temperature=0,
+            )
+            answer = (response.choices[0].message.content or "").strip().lower()
+            return answer.startswith("y")
+        except ImportError:
+            pass  # openai 不可用，fallback 到 http.client
+
+        # Fallback：使用标准库 http.client，兼容纯 stdlib 的沙盒环境
+        import http.client
+        import json as _json
+        import ssl
+        import urllib.parse
+
+        url = base_url or "https://api.openai.com"
+        parsed = urllib.parse.urlparse(url)
+        host = parsed.netloc or parsed.path  # 处理仅填 host 的情况
+        path_prefix = parsed.path.rstrip("/")
+
+        payload = _json.dumps({
+            "model": model,
+            "messages": [{"role": "user", "content": user_content}],
+            "max_tokens": 5,
+            "temperature": 0,
+        }).encode("utf-8")
+
+        try:
+            conn = http.client.HTTPSConnection(host, context=ssl.create_default_context())
+            conn.request(
+                "POST",
+                f"{path_prefix}/v1/chat/completions",
+                body=payload,
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                },
+            )
+            resp = conn.getresponse()
+            data = _json.loads(resp.read().decode("utf-8"))
+            answer = data["choices"][0]["message"]["content"].strip().lower()
+            return answer.startswith("y")
+        except Exception:
+            raise  # 由外层捕获
+
+    results = []
+    fallback_triggered = False
+    for case in evals:
+        prompt_text = case["prompt"]
+        expected = case["should_trigger"]
+        try:
+            actual = _ask_llm(prompt_text)
+        except Exception as exc:
+            print(f"[llm-judge] LLM 调用失败：{exc}，fallback 到 auto 模式", file=sys.stderr)
+            fallback_triggered = True
+            break
+        correct = actual == expected
+        results.append({
+            "prompt": prompt_text,
+            "expected": expected,
+            "actual": actual,
+            "correct": correct,
+        })
+
+    if fallback_triggered:
+        return run_eval_auto(skill_path, evals)
+
+    return _build_report(skill, results)
+
+
+
     """
     根据评估结果构建报告字典。
 
@@ -289,6 +409,12 @@ def main():
         action="store_true",
         help="自动化模式（非交互，适合沙盒环境）",
     )
+    parser.add_argument(
+        "--llm-judge",
+        action="store_true",
+        dest="llm_judge",
+        help="LLM 裁判模式（使用 LLM API 进行语义级判断，需要设置 LLM_API_KEY 环境变量）",
+    )
     args = parser.parse_args()
 
     skill_path = Path(args.skill)
@@ -304,7 +430,9 @@ def main():
 
     evals = json.loads(evals_path.read_text(encoding="utf-8"))
 
-    if args.auto:
+    if args.llm_judge:
+        report = run_eval_llm(skill_path, evals)
+    elif args.auto:
         report = run_eval_auto(skill_path, evals)
     else:
         report = run_eval_interactive(skill_path, evals)

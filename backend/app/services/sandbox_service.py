@@ -94,11 +94,27 @@ class SandboxService:
             # Step 3: 运行 Docker 沙盒测试
             eval_script_path = kernel.get_eval_script_path()
             runner = SandboxRunner()
+
+            # 如果需求中指定使用 LLM 裁判，从 Flask 配置中读取 LLM 凭据传入容器
+            env_vars = None
+            if spec.get("use_llm_eval"):
+                from flask import current_app
+                llm_api_key = current_app.config.get("LLM_API_KEY", "")
+                llm_base_url = current_app.config.get("LLM_BASE_URL", "")
+                llm_model = current_app.config.get("LLM_MODEL", "")
+                if llm_api_key:
+                    env_vars = {"LLM_API_KEY": llm_api_key}
+                    if llm_base_url:
+                        env_vars["LLM_BASE_URL"] = llm_base_url
+                    if llm_model:
+                        env_vars["LLM_MODEL"] = llm_model
+
             result = runner.run_eval(
                 skill_path=skill_path,
                 eval_script_path=eval_script_path,
                 evals=evals,
                 test_id=test_id,
+                env_vars=env_vars,
             )
 
             # Step 4: 处理测试结果

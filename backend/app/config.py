@@ -151,6 +151,12 @@ class BaseConfig:
     # 沙盒容器 CPU 限制（核数）
     SANDBOX_CPU_LIMIT: str = os.environ.get("SANDBOX_CPU_LIMIT", "0.5")
 
+    # 是否允许在沙盒测试前通过 pip 自动安装 requirements.txt 中的依赖
+    # 安装步骤使用独立的、允许网络的容器，安装完成后正式测试仍使用 --network none
+    SANDBOX_ALLOW_PIP_INSTALL: bool = os.environ.get(
+        "SANDBOX_ALLOW_PIP_INSTALL", "false"
+    ).lower() == "true"
+
 
 class DevelopmentConfig(BaseConfig):
     """开发环境配置。"""

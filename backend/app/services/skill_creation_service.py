@@ -288,7 +288,12 @@ class SkillCreationService:
             "   ```python\n"
             "   [脚本内容]\n"
             "   ```\n"
-            "4. 只输出脚本内容，不要额外解释"
+            "4. 如果脚本依赖第三方 Python 包，同时生成 requirements.txt，格式：\n"
+            "   文件名: requirements.txt\n"
+            "   ```\n"
+            "   [每行一个包名，如 requests>=2.28.0]\n"
+            "   ```\n"
+            "5. 只输出脚本内容，不要额外解释"
         )
 
         scripts_output = provider.chat([Message(role="user", content=prompt)])
@@ -304,24 +309,39 @@ class SkillCreationService:
         """
         解析 AI 输出的脚本内容并写入 scripts/ 目录。
 
+        同时识别 requirements.txt 代码块并写入工作区根目录：
+        - Python 脚本（scripts/*.py）写入 scripts/ 子目录
+        - requirements.txt 写入工作区根目录（供沙盒 pip install 使用）
+
         Args:
             workspace_path: Skill 工作区目录路径
             scripts_output: AI 生成的脚本内容文本
         """
-        # 匹配 "文件名: scripts/xxx.py" 后面的 ```python ... ``` 代码块
-        pattern = r"文件名:\s*(scripts/[\w./]+\.py)\s*```python\s*(.*?)```"
-        matches = re.findall(pattern, scripts_output, re.DOTALL)
+        workspace = Path(workspace_path)
 
-        scripts_dir = Path(workspace_path) / "scripts"
+        # 匹配 "文件名: scripts/xxx.py" 后面的 ```python ... ``` 代码块
+        py_pattern = r"文件名:\s*(scripts/[\w./]+\.py)\s*```python\s*(.*?)```"
+        py_matches = re.findall(py_pattern, scripts_output, re.DOTALL)
+
+        scripts_dir = workspace / "scripts"
         scripts_dir.mkdir(parents=True, exist_ok=True)
 
-        for filename, content in matches:
+        for filename, content in py_matches:
             # 安全校验：只允许写入 scripts/ 目录下的 .py 文件
             safe_name = Path(filename).name
             if not safe_name.endswith(".py"):
                 continue
             script_path = scripts_dir / safe_name
             script_path.write_text(content.strip(), encoding="utf-8")
+
+        # 匹配 "文件名: requirements.txt" 后面的 ``` ... ``` 代码块（不限语言标记）
+        req_pattern = r"文件名:\s*requirements\.txt\s*```[^\n]*\n(.*?)```"
+        req_match = re.search(req_pattern, scripts_output, re.DOTALL)
+        if req_match:
+            req_content = req_match.group(1).strip()
+            if req_content:
+                req_path = workspace / "requirements.txt"
+                req_path.write_text(req_content, encoding="utf-8")
 
     @staticmethod
     def _extract_skill_md_content(raw_output: str) -> str:

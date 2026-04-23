@@ -58,6 +58,7 @@ class SandboxRunner:
         eval_script_path: str,
         evals: list,
         test_id: str,
+        env_vars: Optional[Dict[str, str]] = None,
     ) -> Dict:
         """
         在 Docker 容器中执行 Skill 触发精度测试。
@@ -67,6 +68,8 @@ class SandboxRunner:
             eval_script_path: eval_description.py 的宿主机绝对路径
             evals: 测试用例列表（将被写为 evals.json）
             test_id: 测试记录 ID（用于创建临时目录）
+            env_vars: 可选的额外环境变量字典（如 LLM_API_KEY 等），
+                      会通过 -e 参数传入容器
 
         Returns:
             标准化结果字典：
@@ -85,6 +88,7 @@ class SandboxRunner:
         timeout = int(current_app.config.get("SANDBOX_TIMEOUT_SECONDS", 60))
         memory_limit = current_app.config.get("SANDBOX_MEMORY_LIMIT", "256m")
         cpu_limit = current_app.config.get("SANDBOX_CPU_LIMIT", "0.5")
+        allow_pip = current_app.config.get("SANDBOX_ALLOW_PIP_INSTALL", False)
 
         # 创建本次测试的临时目录
         test_dir = Path(sandbox_base) / test_id
@@ -100,6 +104,23 @@ class SandboxRunner:
             output_dir = test_dir / "output"
             output_dir.mkdir(exist_ok=True)
 
+            raw_output_parts = []
+
+            # 如果允许 pip 安装且 Skill 目录中存在 requirements.txt，则预先安装依赖
+            req_file = Path(skill_path) / "requirements.txt"
+            if allow_pip and req_file.is_file():
+                pip_result = self._pip_install(
+                    skill_path=skill_path,
+                    docker_image=docker_image,
+                    memory_limit=memory_limit,
+                    cpu_limit=cpu_limit,
+                )
+                raw_output_parts.append("[pip install]\n" + pip_result.get("output", ""))
+                if pip_result.get("error"):
+                    raw_output_parts.append(
+                        f"[pip install 警告] 依赖安装失败（测试将继续）: {pip_result['error']}"
+                    )
+
             # 组装 docker run 命令
             cmd = self._build_docker_command(
                 skill_path=skill_path,
@@ -110,6 +131,7 @@ class SandboxRunner:
                 memory_limit=memory_limit,
                 cpu_limit=cpu_limit,
                 timeout=timeout,
+                env_vars=env_vars,
             )
 
             # 执行 Docker 命令
@@ -117,12 +139,14 @@ class SandboxRunner:
             result = self._execute_docker(cmd, timeout=timeout + 10)  # 留 10 秒给 Docker 启动
             duration = time.time() - start_time
 
+            raw_output_parts.append(result.get("output", ""))
+
             # 解析输出结果
             report = self._read_result(output_dir)
 
             return {
                 "report": report,
-                "raw_output": result.get("output", ""),
+                "raw_output": "\n".join(raw_output_parts)[:10000],
                 "duration_seconds": round(duration, 2),
                 "timed_out": result.get("timed_out", False),
                 "error": result.get("error"),
@@ -142,6 +166,7 @@ class SandboxRunner:
         memory_limit: str,
         cpu_limit: str,
         timeout: int,
+        env_vars: Optional[Dict[str, str]] = None,
     ) -> list:
         """
         构建 docker run 命令列表。
@@ -154,11 +179,12 @@ class SandboxRunner:
 
         Args:
             ... 各参数见 run_eval 说明
+            env_vars: 额外传入容器的环境变量字典（如 LLM_API_KEY）
 
         Returns:
             shell 命令列表，可直接传给 subprocess.run()
         """
-        return [
+        cmd = [
             "docker", "run",
             "--rm",                          # 容器退出后自动删除
             "--network", "none",             # 禁止网络访问
@@ -172,6 +198,14 @@ class SandboxRunner:
             "-v", f"{evals_path}:/evals.json:ro",
             # 读写挂载输出目录（容器需要写入结果）
             "-v", f"{output_dir}:/output",
+        ]
+
+        # 附加额外环境变量（如 LLM_API_KEY、LLM_BASE_URL 等）
+        if env_vars:
+            for key, value in env_vars.items():
+                cmd.extend(["-e", f"{key}={value}"])
+
+        cmd.extend([
             docker_image,
             # 容器内执行的命令：带超时的 Python 调用
             "timeout", str(timeout),
@@ -180,7 +214,61 @@ class SandboxRunner:
             "--evals", "/evals.json",
             "--output", "/output/result.json",
             "--auto",  # 使用自动化模式（非交互）
+        ])
+
+        # 如果传入了 LLM_API_KEY，则追加 --llm-judge 参数
+        if env_vars and env_vars.get("LLM_API_KEY"):
+            cmd.append("--llm-judge")
+
+        return cmd
+
+    def _pip_install(
+        self,
+        skill_path: str,
+        docker_image: str,
+        memory_limit: str,
+        cpu_limit: str,
+        install_timeout: int = 120,
+    ) -> dict:
+        """
+        在允许网络的独立容器中安装 requirements.txt 中的依赖。
+
+        安装使用独立的容器执行，与正式测试容器隔离。
+        安装失败时不抛出异常，返回带 error 字段的字典，由调用方记录警告。
+
+        Args:
+            skill_path: Skill 目录路径（含 requirements.txt）
+            docker_image: 沙盒 Docker 镜像名称
+            memory_limit: 内存限制
+            cpu_limit: CPU 限制
+            install_timeout: pip install 超时时间（秒，默认 120）
+
+        Returns:
+            包含 output 和 error 字段的字典。
+        """
+        cmd = [
+            "docker", "run",
+            "--rm",
+            "--memory", memory_limit,
+            "--cpus", cpu_limit,
+            "-v", f"{skill_path}:/skill:ro",
+            docker_image,
+            "pip", "install", "-r", "/skill/requirements.txt", "-q",
         ]
+        try:
+            proc = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=install_timeout,
+            )
+            output = (proc.stdout + proc.stderr)[:5000]
+            error = None if proc.returncode == 0 else f"pip 退出码: {proc.returncode}"
+            return {"output": output, "error": error}
+        except subprocess.TimeoutExpired:
+            return {"output": "pip install 超时", "error": "pip install 超时"}
+        except Exception as e:
+            return {"output": "", "error": str(e)}
 
     @staticmethod
     def _execute_docker(cmd: list, timeout: int) -> dict:
