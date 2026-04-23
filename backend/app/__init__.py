@@ -18,7 +18,6 @@ Flask 应用工厂函数（Application Factory）。
 import logging
 import os
 
-import structlog
 from flask import Flask
 from flask_cors import CORS
 

@@ -1,0 +1,208 @@
+# =====================================================================
+# Skill 制造工厂 Docker Compose 配置
+# 版本：第一阶段（后端核心服务）
+#
+# 服务列表：
+#   api      - Flask 后端 API 服务（主服务，对外暴露 5000 端口）
+#   worker   - Celery Worker（处理异步 Skill 创建和沙盒测试任务）
+#   db       - PostgreSQL 数据库（持久化存储）
+#   redis    - Redis（Celery 消息队列 + 结果后端）
+#   flower   - Celery 任务监控面板（可选，5555 端口）
+#
+# 使用方法：
+#   启动所有服务：docker-compose up -d
+#   查看日志：    docker-compose logs -f api
+#   停止服务：    docker-compose down
+#   重建镜像：    docker-compose up -d --build
+#
+# 环境变量：
+#   请先复制 .env.example 为 .env 并填写实际配置
+#   cp .env.example .env && vim .env
+# =====================================================================
+
+services:
+
+  # ------------------------------------------------------------------
+  # Flask 后端 API 服务
+  # 职责：处理所有 HTTP API 请求，包括会话管理、文件操作等
+  # ------------------------------------------------------------------
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: skillfactory-api:latest
+    container_name: skillfactory-api
+    restart: unless-stopped
+    ports:
+      - "${API_PORT:-5000}:5000"
+    environment:
+      - FLASK_ENV=${FLASK_ENV:-production}
+      - DATABASE_URL=postgresql://${DB_USER:-skilluser}:${DB_PASSWORD:-skillpass}@db:5432/${DB_NAME:-skillfactory}
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY:-please-change-in-production}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-}
+      - KERNEL_BASE_PATH=/app/kernels
+      - WORKSPACE_BASE_PATH=/app/workspace
+      - SANDBOX_BASE_PATH=/app/sandboxes
+      - SANDBOX_DOCKER_IMAGE=skillfactory-sandbox:latest
+      - SANDBOX_TIMEOUT_SECONDS=${SANDBOX_TIMEOUT_SECONDS:-60}
+    volumes:
+      # 内核目录：只读挂载，API 服务只读取内核内容
+      - ./backend/kernels:/app/kernels:ro
+      # 工作区：API 服务可读取（文件管理接口）
+      - workspace_data:/app/workspace
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/v1/kernels"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - skillfactory_net
+
+  # ------------------------------------------------------------------
+  # Celery Worker 异步任务服务
+  # 职责：执行 Skill 创建和沙盒测试等耗时异步任务
+  # 特殊权限：需要访问 Docker socket 以启动沙盒容器
+  # ------------------------------------------------------------------
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: skillfactory-api:latest
+    container_name: skillfactory-worker
+    restart: unless-stopped
+    command: celery -A wsgi.celery_app worker --loglevel=info -Q skill_creation,sandbox_test,celery --concurrency=2
+    environment:
+      - FLASK_ENV=${FLASK_ENV:-production}
+      - DATABASE_URL=postgresql://${DB_USER:-skilluser}:${DB_PASSWORD:-skillpass}@db:5432/${DB_NAME:-skillfactory}
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY:-please-change-in-production}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-}
+      - KERNEL_BASE_PATH=/app/kernels
+      - WORKSPACE_BASE_PATH=/app/workspace
+      - SANDBOX_BASE_PATH=/app/sandboxes
+      - SANDBOX_DOCKER_IMAGE=skillfactory-sandbox:latest
+      - SANDBOX_TIMEOUT_SECONDS=${SANDBOX_TIMEOUT_SECONDS:-60}
+    volumes:
+      # 内核目录：只读挂载
+      - ./backend/kernels:/app/kernels:ro
+      # 工作区：Worker 需要写入生成的 Skill 文件
+      - workspace_data:/app/workspace
+      # 沙盒目录：Worker 需要创建临时测试目录
+      - sandbox_data:/app/sandboxes
+      # Docker socket：Worker 需要调用 docker run 启动沙盒容器
+      # 安全说明：这赋予了 Worker 对 Docker daemon 的访问权限，
+      # 生产环境应考虑使用 Docker-in-Docker 或 Rootless Docker 替代
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - skillfactory_net
+
+  # ------------------------------------------------------------------
+  # PostgreSQL 数据库
+  # 职责：持久化存储所有业务数据（模型配置、会话、任务、测试记录等）
+  # ------------------------------------------------------------------
+  db:
+    image: postgres:15-alpine
+    container_name: skillfactory-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${DB_NAME:-skillfactory}
+      - POSTGRES_USER=${DB_USER:-skilluser}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-skillpass}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-skilluser} -d ${DB_NAME:-skillfactory}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - skillfactory_net
+
+  # ------------------------------------------------------------------
+  # Redis
+  # 职责：Celery 消息队列 broker + 任务结果 backend + 会话缓存
+  # ------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: skillfactory-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - skillfactory_net
+
+  # ------------------------------------------------------------------
+  # Celery Flower 任务监控面板（可选）
+  # 职责：实时监控 Celery 任务状态、队列深度、Worker 状态
+  # 访问地址：http://localhost:5555
+  # ------------------------------------------------------------------
+  flower:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: skillfactory-api:latest
+    container_name: skillfactory-flower
+    restart: unless-stopped
+    command: celery -A wsgi.celery_app flower --port=5555
+    ports:
+      - "${FLOWER_PORT:-5555}:5555"
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=postgresql://${DB_USER:-skilluser}:${DB_PASSWORD:-skillpass}@db:5432/${DB_NAME:-skillfactory}
+      - FLASK_ENV=${FLASK_ENV:-production}
+    depends_on:
+      - redis
+    networks:
+      - skillfactory_net
+
+# ------------------------------------------------------------------
+# 沙盒镜像预构建（不作为常驻服务，仅构建镜像供 Worker 使用）
+# 运行方式：docker-compose build sandbox-builder
+# ------------------------------------------------------------------
+# sandbox-builder:
+#   build:
+#     context: ./docker/sandbox
+#     dockerfile: Dockerfile.sandbox
+#   image: skillfactory-sandbox:latest
+#   command: echo "沙盒镜像构建完成"
+
+# ------------------------------------------------------------------
+# 持久化数据卷
+# ------------------------------------------------------------------
+volumes:
+  postgres_data:
+    name: skillfactory_postgres_data
+  redis_data:
+    name: skillfactory_redis_data
+  workspace_data:
+    name: skillfactory_workspace_data
+  sandbox_data:
+    name: skillfactory_sandbox_data
+
+# ------------------------------------------------------------------
+# 网络配置
+# 所有服务在同一网络内互相通信，不对外暴露数据库和 Redis
+# ------------------------------------------------------------------
+networks:
+  skillfactory_net:
+    name: skillfactory_network
+    driver: bridge
