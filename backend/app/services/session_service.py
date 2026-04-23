@@ -299,18 +299,35 @@ completeness_score 的评分标准（0-100）：
         session = self.get_session(session_id)
 
         workspace_base = current_app.config.get("WORKSPACE_BASE_PATH", "/app/workspace")
-        attach_dir = Path(workspace_base) / "sessions" / session_id / "attachments"
+
+        # 校验 session_id 格式（只允许 UUID 格式，防止路径注入）
+        import re as _re
+        if not _re.match(r'^[0-9a-f-]{32,36}$', session_id, _re.IGNORECASE):
+            from ...exceptions import PathSecurityError
+            raise PathSecurityError("无效的会话 ID 格式")
+
+        attach_dir = (Path(workspace_base) / "sessions" / session_id / "attachments").resolve()
         attach_dir.mkdir(parents=True, exist_ok=True)
 
         # 净化文件名，只保留文件名部分（防止路径穿越）
         safe_name = Path(filename).name
+        if not safe_name or safe_name in (".", ".."):
+            safe_name = "attachment"
         # 处理文件名冲突：如果同名文件已存在，在文件名后加序号
-        final_path = attach_dir / safe_name
+        final_path = (attach_dir / safe_name).resolve()
+        # 验证最终路径在 attach_dir 内（防止符号链接绕过）
+        if not str(final_path).startswith(str(attach_dir)):
+            from ...exceptions import PathSecurityError
+            raise PathSecurityError("非法文件路径，操作被拒绝")
         counter = 1
         while final_path.exists():
             stem = Path(safe_name).stem
             suffix = Path(safe_name).suffix
-            final_path = attach_dir / f"{stem}_{counter}{suffix}"
+            candidate = attach_dir / f"{stem}_{counter}{suffix}"
+            final_path = candidate.resolve()
+            if not str(final_path).startswith(str(attach_dir)):
+                from ...exceptions import PathSecurityError
+                raise PathSecurityError("非法文件路径，操作被拒绝")
             counter += 1
 
         final_path.write_bytes(file_content)

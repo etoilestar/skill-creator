@@ -209,7 +209,10 @@ def import_skill():
                 norm = os.path.normpath(info.filename)
                 if norm.startswith("..") or os.path.isabs(norm):
                     continue
-                dest = import_dir / norm
+                dest = (import_dir / norm).resolve()
+                # 最终路径必须在 import_dir 内（防止符号链接和路径穿越绕过）
+                if not str(dest).startswith(str(import_dir.resolve())):
+                    continue
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 dest.write_bytes(zf.read(info.filename))
 
@@ -261,8 +264,8 @@ def import_skill():
         return jsonify({"error": {"code": "INVALID_ZIP", "message": "无效的 ZIP 文件"}}), 400
     except Exception as e:
         shutil.rmtree(import_dir, ignore_errors=True)
-        current_app.logger.error(f"Skill 导入失败: {e}", exc_info=True)
-        return jsonify({"error": {"code": "IMPORT_ERROR", "message": f"导入失败: {str(e)}"}}), 500
+        current_app.logger.error("Skill 导入失败", exc_info=True)
+        return jsonify({"error": {"code": "IMPORT_ERROR", "message": "Skill 导入失败，请检查 ZIP 包格式"}}), 500
 
 
 @skills_bp.route("/<task_id>", methods=["GET"])

@@ -88,7 +88,7 @@ class ConversationSession(db.Model):
     attachments = db.Column(
         db.JSON,
         nullable=True,
-        default=list,
+        default=lambda: [],
         comment="会话附件元数据列表，格式：[{filename, path, size, summary, uploaded_at}]",
     )
     created_at = db.Column(

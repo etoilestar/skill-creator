@@ -236,7 +236,7 @@ class SandboxService:
             response = provider.chat([Message(role="user", content=prompt)])
 
             # 提取 JSON 数组
-            json_match = re.search(r"\[.*\]", response, re.DOTALL)
+            json_match = re.search(r"\[.*?\]", response, re.DOTALL)
             if json_match:
                 return json.loads(json_match.group())
         except Exception:
