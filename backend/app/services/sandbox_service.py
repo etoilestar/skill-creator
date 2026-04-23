@@ -45,23 +45,28 @@ class SandboxService:
             import json as _json
             client = docker.from_env()
             code = skill.code
+            # Pass input as a JSON file via environment variable to avoid injection
             input_json = _json.dumps(sandbox_run.input_data)
-            script = f"""
-import json
-import sys
-
-input_data = json.loads({repr(input_json)})
-
-{code}
-"""
+            # Wrap skill code so input_data is loaded from the injected env var
+            script = (
+                "import json, os\n"
+                "input_data = json.loads(os.environ.get('SKILL_INPUT', '{}'))\n"
+                f"{code}\n"
+            )
             container = client.containers.run(
                 SandboxService.CONTAINER_IMAGE,
                 command=['python', '-c', script],
+                environment={'SKILL_INPUT': input_json},
                 remove=True,
                 detach=False,
                 stdout=True,
                 stderr=True,
                 timeout=SandboxService.TIMEOUT_SECONDS,
+                # Resource limits and network isolation
+                mem_limit='128m',
+                cpu_period=100000,
+                cpu_quota=50000,
+                network_disabled=True,
             )
             sandbox_run.stdout = container.decode('utf-8') if isinstance(container, bytes) else str(container)
             sandbox_run.exit_code = 0
