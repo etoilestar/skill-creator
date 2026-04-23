@@ -16,7 +16,7 @@ Skill 文件管理 API 蓝图。
     - 只允许操作对应 task_id 的工作区目录内的文件
 """
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, current_app, jsonify, request
 
 from ...exceptions import (
     PathSecurityError,
@@ -93,7 +93,8 @@ def write_file(task_id: str, file_path: str):
     except TaskNotFoundError as e:
         return jsonify({"error": {"code": e.code, "message": e.message}}), 404
     except Exception as e:
-        return jsonify({"error": {"code": "FILE_WRITE_ERROR", "message": str(e)}}), 500
+        current_app.logger.error(f"文件写入失败 {file_path}: {e}", exc_info=True)
+        return jsonify({"error": {"code": "FILE_WRITE_ERROR", "message": "文件写入失败，请重试"}}), 500
 
 
 @files_bp.route("/<task_id>/files/<path:file_path>", methods=["DELETE"])

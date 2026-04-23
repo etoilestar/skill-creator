@@ -190,9 +190,7 @@ class SkillCreationService:
             })
 
             # 校验生成的 Skill 结构
-            validation = kernel.validate_skill_structure.__func__(
-                kernel, self._write_temp_skill(skill_name, skill_md)
-            ) if False else self._validate_skill_md_content(kernel, skill_name, skill_md)
+            validation = self._validate_skill_md_content(kernel, skill_name, skill_md)
 
             if validation.valid:
                 return skill_md

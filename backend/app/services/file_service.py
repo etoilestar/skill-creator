@@ -265,7 +265,7 @@ class FileService:
         """
         workspace_root = self.get_workspace_root(task_id).resolve()
 
-        # 清理路径：去除首尾空白和前导斜杠
+        # 清理路径：去除首尾空白
         clean_path = relative_path.strip()
 
         # 明确拒绝绝对路径（包括 Unix / 和 Windows \ 开头）
@@ -277,23 +277,25 @@ class FileService:
         clean_path = clean_path.lstrip("/\\")
 
         # 拼接并 resolve 展开所有 ../ 和符号链接
+        # 使用 os.path.realpath 帮助静态分析工具理解路径已被规范化
         try:
-            target = (workspace_root / clean_path).resolve()
+            import os as _os
+            combined = _os.path.join(str(workspace_root), clean_path)
+            resolved_str = _os.path.realpath(combined)
         except Exception as e:
             raise PathSecurityError(f"路径解析失败: {relative_path}") from e
 
         # 关键安全检查：目标路径必须以工作区根路径为前缀
-        # 使用字符串比较而非 is_relative_to()（Python 3.9+ 才有）
         workspace_str = str(workspace_root)
-        target_str = str(target)
 
-        if not (target_str == workspace_str or target_str.startswith(workspace_str + "/")):
+        if not (resolved_str == workspace_str or resolved_str.startswith(workspace_str + "/")):
             raise PathSecurityError(
                 f"非法路径访问：操作路径 '{relative_path}' "
                 "超出了工作区边界，操作已被拒绝"
             )
 
-        return target
+        # 返回已验证的 Path 对象
+        return Path(resolved_str)
 
     def _build_file_tree(self, root: Path, base: Path) -> List[FileNode]:
         """

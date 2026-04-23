@@ -123,6 +123,7 @@ def reload_kernel(kernel_id: str):
             },
         })
     except Exception as e:
+        current_app.logger.error(f"内核重载失败: {e}", exc_info=True)
         return jsonify({
-            "error": {"code": "KERNEL_RELOAD_ERROR", "message": str(e)}
+            "error": {"code": "KERNEL_RELOAD_ERROR", "message": "内核重新加载失败，请查看服务日志"}
         }), 500
