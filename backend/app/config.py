@@ -188,6 +188,11 @@ class TestingConfig(BaseConfig):
     # 测试使用内存 SQLite，每次测试后自动清理
     SQLALCHEMY_DATABASE_URI: str = "sqlite:///:memory:"
 
+    # SQLite 不支持连接池参数，测试时使用最简配置
+    SQLALCHEMY_ENGINE_OPTIONS: dict = {
+        "pool_pre_ping": True,
+    }
+
     # 测试时禁用 Celery 异步，改为同步执行
     CELERY: dict = {
         **BaseConfig.CELERY,
