@@ -16,7 +16,7 @@ backend/app/api/v1/sessions.py
     - completeness_score 由 AI 在每轮对话后更新，前端据此决定是否显示"开始创建"按钮
 """
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, Response, jsonify, request, stream_with_context
 
 from ...exceptions import RequirementIncompleteError, SessionNotFoundError
 from ...services.session_service import SessionService
@@ -110,6 +110,50 @@ def get_requirement(session_id: str):
         })
     except SessionNotFoundError as e:
         return jsonify({"error": {"code": e.code, "message": e.message}}), 404
+
+
+@sessions_bp.route("/<session_id>/stream", methods=["POST"])
+def stream_message(session_id: str):
+    """
+    在已有会话中以 SSE 流式方式发送用户消息，实时接收 AI 回复。
+
+    Request Body (JSON):
+        message: str, 必填，用户消息（中文）
+
+    Returns:
+        text/event-stream 响应，每个 SSE 事件的格式为：
+        - 普通文本块：data: {"type":"text","content":"...分片..."}\n\n
+        - 流结束（含更新后的 session）：data: {"type":"done","session":{...}}\n\n
+        - 错误：data: {"type":"error","message":"..."}\n\n
+    """
+    import json
+
+    data = request.get_json(force=True) or {}
+    message = data.get("message", "").strip()
+
+    if not message:
+        return jsonify({"error": {"code": "MISSING_FIELD", "message": "缺少 message 字段"}}), 400
+
+    service = SessionService()
+
+    def generate():
+        for chunk in service.stream_message(session_id, message):
+            # 判断是否为 done/error 控制包（JSON 字符串），否则包装为 text 事件
+            stripped = chunk.strip()
+            if stripped.startswith("{") and ('"type":"done"' in stripped or '"type":"error"' in stripped):
+                yield f"data: {chunk}\n\n"
+            else:
+                payload = json.dumps({"type": "text", "content": chunk}, ensure_ascii=False)
+                yield f"data: {payload}\n\n"
+
+    return Response(
+        stream_with_context(generate()),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",  # 禁止 Nginx 缓冲，确保实时推送
+        },
+    )
 
 
 @sessions_bp.route("/<session_id>/confirm", methods=["POST"])

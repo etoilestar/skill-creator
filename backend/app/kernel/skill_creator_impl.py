@@ -140,6 +140,66 @@ class SkillCreatorKernelImpl(KernelAdapter):
             raise KernelNotLoadedError("skill-creator 内核内容为空，请重新加载")
         return self._skill_md_content
 
+    def get_skill_creation_guide_summary(self) -> str:
+        """
+        获取 SKILL.md 的摘要版本（前 60 行或第一个 ## 章节前的内容）。
+
+        用于需求采集阶段的 System Prompt 注入，减少 Token 消耗。
+        完整指南仅在 AI 主动请求（[FETCH_GUIDE]）时注入。
+
+        Returns:
+            SKILL.md 摘要字符串。
+        """
+        if not self._skill_md_content:
+            return "（skill-creator 指南暂不可用）"
+        lines = self._skill_md_content.splitlines()
+        # 取前 60 行，或第一个 "## " 章节标题之前的内容（以较短者为准）
+        cutoff = 60
+        for i, line in enumerate(lines):
+            if i > 0 and line.startswith("## ") and i < cutoff:
+                cutoff = i
+                break
+        return "\n".join(lines[:cutoff])
+
+    def get_skill_creation_guide_section(self, section: str) -> str:
+        """
+        获取 SKILL.md 中指定标题的章节内容。
+
+        按 "## <section>" 标题切片，返回该标题到下一个同级标题（## 级别）之间的内容。
+        匹配不区分大小写，section 参数支持关键词匹配（如 "phase1" 匹配 "## Phase 1: ..."）。
+
+        Args:
+            section: 章节关键词，如 "phase1" / "phase2" / "references" / "checklist"
+
+        Returns:
+            对应章节的 Markdown 文本；未找到时返回空字符串。
+        """
+        if not self._skill_md_content:
+            return ""
+
+        lines = self._skill_md_content.splitlines()
+        section_lower = section.lower().replace("-", "").replace("_", "").replace(" ", "")
+
+        start_idx = None
+        end_idx = len(lines)
+
+        for i, line in enumerate(lines):
+            if line.startswith("## "):
+                heading = line[3:].lower().replace("-", "").replace("_", "").replace(" ", "")
+                if start_idx is None:
+                    # 检查是否匹配目标章节（允许关键词部分匹配）
+                    if section_lower in heading or heading.startswith(section_lower[:6]):
+                        start_idx = i
+                else:
+                    # 找到下一个同级标题，结束截取
+                    end_idx = i
+                    break
+
+        if start_idx is None:
+            return ""
+
+        return "\n".join(lines[start_idx:end_idx])
+
     def get_creation_prompt_template(self) -> str:
         """
         返回构建 Skill 创建 AI Prompt 的模板字符串。

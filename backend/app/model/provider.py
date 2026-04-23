@@ -175,6 +175,53 @@ class OpenAICompatProvider:
                 f"模型 '{self.model_name}' 调用失败: {type(e).__name__}: {str(e)}"
             ) from e
 
+    def stream_chat(
+        self, messages: List[Message], system: Optional[str] = None
+    ) -> "Generator[str, None, None]":
+        """
+        调用模型进行对话，以生成器方式逐块 yield 响应文本。
+
+        与 chat() 不同，stream_chat 不使用 tenacity 重试，因为流式响应一旦开始
+        就无法回滚。调用方应自行处理异常（捕获 ModelCallError）。
+
+        Args:
+            messages: 对话历史消息列表
+            system: 可选的 system 提示词（会被插入到消息列表最前面）
+
+        Yields:
+            模型返回的文本内容分片（str），每次 yield 一小块
+
+        Raises:
+            ModelCallError: 当 API 调用初始化失败时（流建立前）
+        """
+        try:
+            client = self._get_client()
+
+            api_messages = []
+            if system:
+                api_messages.append({"role": "system", "content": system})
+            api_messages.extend([m.to_dict() for m in messages])
+
+            call_kwargs = {
+                "model": self.model_name,
+                "messages": api_messages,
+                "max_tokens": self.max_tokens,
+                "temperature": self.temperature,
+                "stream": True,
+                **self.extra_params,
+            }
+
+            stream = client.chat.completions.create(**call_kwargs)
+            for chunk in stream:
+                delta_content = chunk.choices[0].delta.content if chunk.choices else None
+                if delta_content:
+                    yield delta_content
+
+        except Exception as e:
+            raise ModelCallError(
+                f"模型 '{self.model_name}' 流式调用失败: {type(e).__name__}: {str(e)}"
+            ) from e
+
     def test_connection(self) -> ConnectionTestResult:
         """
         测试模型 API 连通性。

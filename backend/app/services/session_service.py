@@ -52,11 +52,13 @@ class SessionService:
 
 你的核心任务是通过友好的中文多轮对话，帮助用户逐步明确他们想要创建的 Skill 的各个关键要素。
 
-以下是 skill-creator 的完整创建指南，你必须参考这份指南来引导用户：
+以下是 skill-creator 的创建指南摘要，你必须参考这份指南来引导用户：
 
-=== skill-creator 创建指南 ===
+=== skill-creator 创建指南（摘要）===
 {skill_creation_guide}
 === 创建指南结束 ===
+
+如果你需要查看完整的创建规则和详细说明，请在回复中包含 [FETCH_GUIDE] 标记，系统将在下一轮为你注入完整指南。
 
 在每次回复中，你必须：
 1. 用自然的中文与用户对话，解答疑问，引导用户思考
@@ -126,6 +128,92 @@ completeness_score 的评分标准（0-100）：
 
         db.session.commit()
         return session
+
+    def stream_message(
+        self, session_id: str, user_message: str
+    ) -> "Generator[str, None, None]":
+        """
+        在现有会话中以流式方式发送用户消息，逐块 yield AI 回复文本。
+
+        流结束后自动同步写库（更新消息历史、需求和评分）。
+        如果流中途出错，yield 一个 JSON 错误片段后终止。
+
+        Args:
+            session_id: 会话 ID
+            user_message: 用户消息内容
+
+        Yields:
+            str: AI 回复的文本分片（普通文本块）
+                 或 JSON 字符串（type=done 时包含更新后的 session；type=error 时包含错误信息）
+
+        Raises:
+            SessionNotFoundError: 当会话 ID 不存在时（在生成器内部捕获后 yield error）
+        """
+        import json as _json
+
+        session = ConversationSession.query.get(session_id)
+        if session is None:
+            yield _json.dumps({"type": "error", "message": f"会话不存在: {session_id}"}, ensure_ascii=False)
+            return
+
+        # 构建 system prompt 和历史消息（与 _process_message 保持一致）
+        try:
+            registry = KernelRegistry.get_instance()
+            kernel = registry.get_kernel("skill-creator")
+            last_assistant_msg = ""
+            for msg in reversed(session.messages or []):
+                if msg.get("role") == "assistant":
+                    last_assistant_msg = msg.get("content", "")
+                    break
+            if "[FETCH_GUIDE]" in last_assistant_msg:
+                guide = kernel.get_skill_creation_guide()
+            else:
+                guide = kernel.get_skill_creation_guide_summary()
+        except Exception:
+            guide = "（skill-creator 指南暂不可用）"
+
+        system_prompt = self._SYSTEM_PROMPT_TEMPLATE.format(skill_creation_guide=guide)
+
+        history = []
+        for msg in (session.messages or []):
+            history.append(Message(role=msg["role"], content=msg["content"]))
+        history.append(Message(role="user", content=user_message))
+
+        provider = ModelProviderFactory.create_from_active_config()
+
+        full_reply = []
+        try:
+            for chunk in provider.stream_chat(history, system=system_prompt):
+                full_reply.append(chunk)
+                yield chunk
+        except Exception as e:
+            yield _json.dumps({"type": "error", "message": str(e)}, ensure_ascii=False)
+            return
+
+        # 流结束后拼接完整回复并写库
+        ai_reply = "".join(full_reply)
+        display_reply = re.sub(
+            r"```requirement_spec\s*\{.*?\}\s*```",
+            "",
+            ai_reply,
+            flags=re.DOTALL,
+        ).strip()
+
+        updated_spec, score = self._extract_requirement_spec(
+            ai_reply, session.requirement_spec or self._empty_requirement_spec()
+        )
+
+        session.add_message("user", user_message)
+        session.add_message("assistant", display_reply or ai_reply)
+        session.requirement_spec = updated_spec
+        session.completeness_score = score
+
+        if score >= 80 and session.phase == ConversationSession.PHASE_GATHERING:
+            session.phase = ConversationSession.PHASE_STRUCTURING
+
+        db.session.commit()
+
+        yield _json.dumps({"type": "done", "session": session.to_dict()}, ensure_ascii=False)
 
     def send_message(self, session_id: str, user_message: str) -> Tuple[str, ConversationSession]:
         """
@@ -256,11 +344,20 @@ completeness_score 的评分标准（0-100）：
         Returns:
             (ai_reply_text, updated_requirement_spec, completeness_score) 三元组。
         """
-        # 获取 skill-creator 创建指南（作为 System Prompt 的核心）
+        # 获取 skill-creator 创建指南（会话阶段只注入摘要，降低 Token 消耗）
         try:
             registry = KernelRegistry.get_instance()
             kernel = registry.get_kernel("skill-creator")
-            guide = kernel.get_skill_creation_guide()
+            # 默认使用摘要；若上一轮 AI 回复包含 [FETCH_GUIDE]，则注入完整指南
+            last_assistant_msg = ""
+            for msg in reversed(session.messages or []):
+                if msg.get("role") == "assistant":
+                    last_assistant_msg = msg.get("content", "")
+                    break
+            if "[FETCH_GUIDE]" in last_assistant_msg:
+                guide = kernel.get_skill_creation_guide()
+            else:
+                guide = kernel.get_skill_creation_guide_summary()
         except Exception:
             # 内核加载失败时，使用降级模式（无指南）
             guide = "（skill-creator 指南暂不可用）"
