@@ -1,0 +1,15 @@
+{
+  "kernel_id": "skill-creator",
+  "version": "1.0.0",
+  "source_url": "https://skillsmp.com/skills/openclaw-openclaw-skills-skill-creator-skill-md",
+  "github_ref": "iml885203/openclaw-skill-creator",
+  "downloaded_at": "2026-04-23T06:00:00Z",
+  "checksum_skill_md": "",
+  "status": "active",
+  "description": "OpenClaw Skill Creator 内核，用于指导 AI 创建符合 OpenClaw 规范的 Skill。",
+  "capabilities": [
+    "skill_creation_guide",
+    "description_eval",
+    "quality_checklist"
+  ]
+}
