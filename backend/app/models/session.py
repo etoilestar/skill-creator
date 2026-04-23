@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from app.extensions import db
 
 
@@ -13,8 +13,8 @@ class SkillSession(db.Model):
     context = db.Column(db.JSON, default=list)
     current_spec = db.Column(db.JSON, nullable=True)
     kernel_id = db.Column(db.String(255), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     skills = db.relationship('Skill', backref='session', lazy=True)
 

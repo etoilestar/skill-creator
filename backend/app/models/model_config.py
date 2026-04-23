@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from app.extensions import db
 
 
@@ -15,8 +15,8 @@ class ModelConfig(db.Model):
     max_tokens = db.Column(db.Integer, default=4096)
     temperature = db.Column(db.Float, default=0.7)
     is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     sessions = db.relationship('SkillSession', backref='model_config', lazy=True)
 

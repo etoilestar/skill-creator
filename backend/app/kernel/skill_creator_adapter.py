@@ -1,9 +1,11 @@
 import json
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class SkillCreatorAdapter:
+    # TODO: Replace send_message stub with real LLM API integration (e.g. OpenAI, Anthropic).
+    # Currently returns mock SkillSpec data for development purposes.
     def send_message(self, session, message, kernel_id=None):
         mock_spec = {
             'name': 'generated_skill',
@@ -30,7 +32,7 @@ class SkillCreatorAdapter:
             'role': 'assistant',
             'content': json.dumps(mock_spec),
             'spec': mock_spec,
-            'timestamp': datetime.utcnow().isoformat(),
+            'timestamp': datetime.now(timezone.utc).isoformat(),
         }
 
     def execute_skill(self, skill_code, input_data, kernel_id=None):

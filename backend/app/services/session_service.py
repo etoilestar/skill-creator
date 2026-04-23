@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from app.extensions import db
 from app.models.session import SkillSession
 from app.models.model_config import ModelConfig
@@ -30,7 +30,7 @@ class SessionService:
         if not session:
             return None
         context = list(session.context or [])
-        context.append({'role': role, 'content': content, 'timestamp': datetime.utcnow().isoformat()})
+        context.append({'role': role, 'content': content, 'timestamp': datetime.now(timezone.utc).isoformat()})
         session.context = context
         db.session.commit()
         return session

@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from app.extensions import db
 from app.models.sandbox_run import SandboxRun
 from app.models.skill import Skill
@@ -37,7 +37,7 @@ class SandboxService:
             return sandbox_run
 
         sandbox_run.status = 'running'
-        sandbox_run.started_at = datetime.utcnow()
+        sandbox_run.started_at = datetime.now(timezone.utc)
         db.session.commit()
 
         try:
@@ -62,7 +62,7 @@ class SandboxService:
                 stdout=True,
                 stderr=True,
                 timeout=SandboxService.TIMEOUT_SECONDS,
-                # Resource limits and network isolation
+                # Resource limits: 128m RAM, 50% of one CPU core (cpu_quota/cpu_period), no network
                 mem_limit='128m',
                 cpu_period=100000,
                 cpu_quota=50000,
@@ -76,7 +76,7 @@ class SandboxService:
             sandbox_run.stderr = str(exc)
             sandbox_run.exit_code = 1
         finally:
-            sandbox_run.finished_at = datetime.utcnow()
+            sandbox_run.finished_at = datetime.now(timezone.utc)
             db.session.commit()
 
         return sandbox_run

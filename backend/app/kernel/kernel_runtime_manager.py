@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class KernelRuntimeManager:
@@ -11,8 +11,8 @@ class KernelRuntimeManager:
         self._kernels[kernel_id] = {
             'kernel_id': kernel_id,
             'status': 'idle',
-            'started_at': datetime.utcnow().isoformat(),
-            'last_activity': datetime.utcnow().isoformat(),
+            'started_at': datetime.now(timezone.utc).isoformat(),
+            'last_activity': datetime.now(timezone.utc).isoformat(),
         }
         return kernel_id
 
@@ -26,7 +26,7 @@ class KernelRuntimeManager:
         if kernel_id not in self._kernels:
             return False
         self._kernels[kernel_id]['status'] = 'idle'
-        self._kernels[kernel_id]['last_activity'] = datetime.utcnow().isoformat()
+        self._kernels[kernel_id]['last_activity'] = datetime.now(timezone.utc).isoformat()
         return True
 
     def list_kernels(self):

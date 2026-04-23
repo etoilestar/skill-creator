@@ -1,8 +1,9 @@
 import os
+import secrets
 
 
 class Config:
-    SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret-key')
+    SECRET_KEY = os.environ.get('SECRET_KEY') or secrets.token_hex(32)
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL', 'sqlite:///skillcreator.db')
     CELERY_BROKER_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')

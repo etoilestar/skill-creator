@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from flask import Blueprint
 from app.utils.response import success
 
@@ -9,5 +9,5 @@ health_bp = Blueprint('health', __name__, url_prefix='/api/health')
 def health_check():
     return success({
         'status': 'ok',
-        'timestamp': datetime.utcnow().isoformat(),
+        'timestamp': datetime.now(timezone.utc).isoformat(),
     })
