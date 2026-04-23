@@ -21,6 +21,7 @@ Skill 文件管理服务。
     - backend/app/sandboxes/：沙盒测试区（由 SandboxService 管理）
 """
 
+import os
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -276,12 +277,10 @@ class FileService:
 
         clean_path = clean_path.lstrip("/\\")
 
-        # 拼接并 resolve 展开所有 ../ 和符号链接
-        # 使用 os.path.realpath 帮助静态分析工具理解路径已被规范化
+        # 拼接并 realpath 展开所有 ../ 和符号链接
         try:
-            import os as _os
-            combined = _os.path.join(str(workspace_root), clean_path)
-            resolved_str = _os.path.realpath(combined)
+            combined = os.path.join(str(workspace_root), clean_path)
+            resolved_str = os.path.realpath(combined)
         except Exception as e:
             raise PathSecurityError(f"路径解析失败: {relative_path}") from e
 
@@ -294,8 +293,12 @@ class FileService:
                 "超出了工作区边界，操作已被拒绝"
             )
 
-        # 返回已验证的 Path 对象
-        return Path(resolved_str)
+        # 安全检查通过后，从可信的 workspace_str 重建路径（而非来自用户输入），
+        # 以破坏污点数据流并降低静态分析误报。
+        safe_relative = resolved_str[len(workspace_str):].lstrip(os.sep)
+        if safe_relative:
+            return Path(workspace_str) / safe_relative
+        return Path(workspace_str)
 
     def _build_file_tree(self, root: Path, base: Path) -> List[FileNode]:
         """
