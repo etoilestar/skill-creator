@@ -128,6 +128,7 @@ def _register_blueprints(app: Flask) -> None:
     from .api.v1.tasks import tasks_bp
     from .api.v1.files import files_bp
     from .api.v1.tests import tests_bp
+    from .api.v1.skills import skills_bp
 
     app.register_blueprint(config_bp, url_prefix="/api/v1/config")
     app.register_blueprint(kernels_bp, url_prefix="/api/v1/kernels")
@@ -135,6 +136,7 @@ def _register_blueprints(app: Flask) -> None:
     app.register_blueprint(tasks_bp, url_prefix="/api/v1/tasks")
     app.register_blueprint(files_bp, url_prefix="/api/v1/tasks")
     app.register_blueprint(tests_bp, url_prefix="/api/v1/tasks")
+    app.register_blueprint(skills_bp, url_prefix="/api/v1/skills")
 
     app.logger.info("所有 API 蓝图注册完成")
 

@@ -25,6 +25,7 @@ evals.json 格式：
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -103,14 +104,95 @@ def run_eval_interactive(skill_path: Path, evals: list) -> dict:
     return _build_report(skill, results)
 
 
+def _extract_tokens(text: str) -> set:
+    """
+    从文本中提取有效的匹配 token 集合，同时支持英文单词和中文字符。
+
+    策略：
+    - 英文：按单词拆分，去除停用词和单字符词
+    - 中文：提取 CJK 字符，只生成双字 bigram（不保留单字）
+
+    只用 bigram 而不保留单字的原因：
+    - 单个汉字语义模糊（如"件""帮""用"出现在大量不相关词汇中），
+      保留单字会引入大量误触发（false positive）。
+    - bigram 组合包含足够的语义信息（如"创建""技能""文件"），
+      精度远优于单字匹配。
+    - 无需安装 jieba 等分词库，可在纯标准库的沙盒环境中运行。
+
+    Args:
+        text: 待提取的原始文本
+
+    Returns:
+        token 字符串集合
+    """
+    # 英文停用词
+    en_stop = {
+        "use", "when", "not", "for", "the", "a", "an", "and", "or", "to",
+        "is", "it", "of", "in", "that", "this", "with", "as", "are", "was",
+        "i", "you", "he", "she", "we", "they", "do", "be", "have", "has",
+        "by", "at", "on", "if", "so", "but", "can", "will", "user", "users",
+        "want", "wants", "need", "needs", "help", "me", "my",
+    }
+    # 中文停用词组（用于过滤低语义 bigram）
+    zh_stop_bigrams = {
+        "什么", "怎么", "哪里", "一个", "一些", "一下", "可以", "没有",
+        "的话", "一样", "这个", "那个", "这种", "那种", "如果", "因为",
+        "所以", "但是", "然后", "还有", "还是", "或者", "以及", "之后",
+    }
+
+    tokens: set = set()
+
+    # --- 英文单词 token ---
+    for w in re.findall(r'[a-z]+', text.lower()):
+        if w not in en_stop and len(w) > 1:
+            tokens.add(w)
+
+    # --- 中文 bigram token（只用 bigram，不用单字）---
+    cjk_chars = re.findall(r'[\u4e00-\u9fff\u3400-\u4dbf]', text)
+    for i in range(len(cjk_chars) - 1):
+        bigram = cjk_chars[i] + cjk_chars[i + 1]
+        if bigram not in zh_stop_bigrams:
+            tokens.add(bigram)
+
+    return tokens
+
+
+def _overlap_score(desc_tokens: set, prompt_tokens: set) -> float:
+    """
+    计算描述 token 集与 prompt token 集的重叠系数（Overlap Coefficient）。
+
+    重叠系数 = |A ∩ B| / min(|A|, |B|)
+
+    使用重叠系数而非 Jaccard：
+    - 当 prompt 很短（用户常见），分母取较小集的大小，
+      避免因 prompt 词少而使 Jaccard 虚低。
+
+    Args:
+        desc_tokens: 从 description 提取的 token 集
+        prompt_tokens: 从 prompt 提取的 token 集
+
+    Returns:
+        0.0 ~ 1.0 之间的相似度得分
+    """
+    if not desc_tokens or not prompt_tokens:
+        return 0.0
+    intersection = desc_tokens & prompt_tokens
+    return len(intersection) / min(len(desc_tokens), len(prompt_tokens))
+
+
+# 触发判定阈值：重叠系数 >= 此值则认为 prompt 会触发该 Skill
+# 经验值 0.15：对于 10 个描述关键词，只需 1-2 个出现在 prompt 中即可
+_TRIGGER_THRESHOLD = 0.15
+
+
 def run_eval_auto(skill_path: Path, evals: list) -> dict:
     """
-    以自动化模式运行评估，通过描述关键词匹配来判断触发性（非交互，适合沙盒环境）。
+    以自动化模式运行评估，通过 token 重叠得分判断触发性（非交互，适合沙盒环境）。
 
     自动模式的评估逻辑：
-    - 将 Skill description 中的关键词与 prompt 进行语义相似度匹配
-    - 使用简单的词汇重叠方法（适合沙盒环境，无需 AI 调用）
-    - 对于高精度需求，建议在真实 Agent 环境中进行人工评估
+    - 同时支持英文单词和中文字符（单字 + bigram）的 token 提取
+    - 使用归一化重叠系数替代原始计数阈值，消除描述长度影响
+    - 无需安装 jieba 等分词库，可在标准 Python 环境中运行
 
     Args:
         skill_path: SKILL.md 文件路径
@@ -120,24 +202,17 @@ def run_eval_auto(skill_path: Path, evals: list) -> dict:
         包含评估结果的字典
     """
     skill = parse_skill_md(skill_path)
-    description = skill.get("description", "").lower()
-
-    # 提取描述中的关键词（去除常见停用词）
-    stop_words = {
-        "use", "when", "not", "for", "the", "a", "an", "and", "or", "to",
-        "is", "it", "of", "in", "that", "this", "with", "as", "are", "was",
-    }
-    desc_words = set(w.strip(".,():") for w in description.split() if w.lower() not in stop_words)
+    description = skill.get("description", "")
+    desc_tokens = _extract_tokens(description)
 
     results = []
     for case in evals:
         prompt = case["prompt"]
         expected = case["should_trigger"]
-        prompt_lower = prompt.lower()
 
-        # 简单关键词匹配：prompt 中出现描述关键词则认为会触发
-        overlap = sum(1 for w in desc_words if w in prompt_lower)
-        actual = overlap >= 1  # 至少 1 个关键词命中则认为触发
+        prompt_tokens = _extract_tokens(prompt)
+        score = _overlap_score(desc_tokens, prompt_tokens)
+        actual = score >= _TRIGGER_THRESHOLD
 
         correct = actual == expected
         results.append({
@@ -145,7 +220,7 @@ def run_eval_auto(skill_path: Path, evals: list) -> dict:
             "expected": expected,
             "actual": actual,
             "correct": correct,
-            "keyword_overlap": overlap,
+            "overlap_score": round(score, 4),
         })
 
     return _build_report(skill, results)
