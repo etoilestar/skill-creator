@@ -4,6 +4,9 @@
 # 构建方式：docker-compose up --build
 # =====================================================================
 
+# 从官方 Docker CLI 镜像中提取二进制，避免通过 apt 安装时的网络依赖
+FROM docker:27-cli AS docker-cli
+
 FROM python:3.11-slim
 
 # 设置工作目录
@@ -11,7 +14,6 @@ WORKDIR /app
 
 # 安装系统依赖
 # - gcc: 编译某些 Python 扩展包（如 psycopg2）
-# - docker-cli: Worker 容器需要调用 docker 命令启动沙盒容器
 # - curl: 健康检查使用
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
@@ -19,18 +21,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# 安装 Docker CLI（Worker 需要在宿主机上启动沙盒容器）
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates \
-    gnupg \
-    && install -m 0755 -d /etc/apt/keyrings \
-    && curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg \
-    && chmod a+r /etc/apt/keyrings/docker.gpg \
-    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian \
-    $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null \
-    && apt-get update && apt-get install -y --no-install-recommends \
-    docker-ce-cli \
-    && rm -rf /var/lib/apt/lists/*
+# 从 docker:cli 镜像拷贝 Docker CLI 二进制（Worker 需要在宿主机上启动沙盒容器）
+COPY --from=docker-cli /usr/local/bin/docker /usr/local/bin/docker
 
 # 先复制 requirements.txt 利用 Docker layer 缓存（依赖不变时跳过安装步骤）
 COPY requirements.txt .
