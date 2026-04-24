@@ -32,7 +32,7 @@ def app():
 def db(app):
     """创建测试数据库（整个 session 建表一次）。"""
     from app.extensions import db as _db
-    import app.models as _app_models  # noqa: ensure all models are registered
+    import app.models as _app_models  # noqa: F401 — imported for side effects (model registration)
 
     with app.app_context():
         _db.create_all()
