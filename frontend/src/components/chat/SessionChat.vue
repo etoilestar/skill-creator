@@ -52,7 +52,7 @@ async function clearSession() {
     })
     await chatStore.clearSession()
     ElMessage.success('对话已清空')
-  } catch (e: any) {
+  } catch (e: unknown) {
     if (e !== 'cancel') ElMessage.error('Failed to clear session')
   }
 }
