@@ -172,6 +172,35 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     }
   }
 
+  async function createDraftTask(skillName?: string) {
+    try {
+      const res = await tasksApi.create(skillName)
+      tasks.value.unshift(res.data)
+      return res.data
+    } catch (e) {
+      console.error(e)
+      throw e
+    }
+  }
+
+  async function deleteTask(id: string) {
+    try {
+      await tasksApi.delete(id)
+      tasks.value = tasks.value.filter(t => t.id !== id)
+      if (currentTask.value?.id === id) {
+        stopPolling()
+        currentTask.value = null
+        fileTree.value = []
+        openFiles.value = []
+        activeFile.value = null
+        taskLogs.value = ''
+      }
+    } catch (e) {
+      console.error(e)
+      throw e
+    }
+  }
+
   async function retryTask() {
     if (!currentTask.value) return
     try {
@@ -194,6 +223,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     pollingInterval,
     loadTasks,
     selectTask,
+    createDraftTask,
+    deleteTask,
     startPolling,
     stopPolling,
     loadFileTree,

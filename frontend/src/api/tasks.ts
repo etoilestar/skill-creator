@@ -30,7 +30,10 @@ export interface TaskListResponse {
 export const tasksApi = {
   list: (params?: { status?: string; page?: number; per_page?: number }) =>
     http.get<TaskListResponse>('/tasks', { params }),
+  create: (skillName?: string) =>
+    http.post<Task>('/tasks', { skill_name: skillName }),
   get: (id: string) => http.get<Task>(`/tasks/${id}`),
+  delete: (id: string) => http.delete(`/tasks/${id}`),
   getLogs: (id: string, params?: { event_type?: string; limit?: number }) =>
     http.get<TaskLog[]>(`/tasks/${id}/logs`, { params }),
   retry: (id: string) => http.post<{ message: string; task: Task }>(`/tasks/${id}/retry`),
