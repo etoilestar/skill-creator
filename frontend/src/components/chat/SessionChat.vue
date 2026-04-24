@@ -48,9 +48,9 @@ async function confirm() {
   try {
     const result = await chatStore.confirmCreation()
     ElMessage.success('Creation started!')
-    if (result?.task_id) {
+    if (result?.id) {
       await workspaceStore.loadTasks()
-      await workspaceStore.selectTask(result.task_id)
+      await workspaceStore.selectTask(result.id)
     }
   } catch {
     ElMessage.error('Failed to start creation')

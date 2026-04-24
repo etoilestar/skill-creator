@@ -79,7 +79,7 @@ export const useSystemStore = defineStore('system', () => {
     }
   }
 
-  async function testModel(id: string): Promise<{ latency: number; success: boolean }> {
+  async function testModel(id: string) {
     try {
       const res = await configApi.testModel(id)
       return res.data

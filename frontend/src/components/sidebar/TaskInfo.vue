@@ -34,10 +34,10 @@ async function retry() {
 <template>
   <div class="task-info" v-if="task">
     <div class="task-header">
-      <div class="task-name">{{ task.name || task.id }}</div>
+    <div class="task-name">{{ task.skill_name || task.id }}</div>
       <el-tag :type="getStatusType(task.status)" size="small">{{ task.status }}</el-tag>
     </div>
-    <p class="task-desc">{{ task.description }}</p>
+    <p v-if="task.error_message" class="task-desc">{{ task.error_message }}</p>
 
     <div v-if="task.status === 'CREATING' || task.status === 'PENDING'" class="creating-state">
       <el-icon class="is-loading"><Loading /></el-icon>

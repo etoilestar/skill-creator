@@ -40,7 +40,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   async function loadTasks() {
     try {
       const res = await tasksApi.list()
-      tasks.value = res.data
+      tasks.value = res.data.tasks
     } catch (e) {
       console.error(e)
     }
@@ -156,8 +156,10 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   async function loadLogs() {
     if (!currentTask.value) return
     try {
-      const res = await tasksApi.getLogs(currentTask.value.id)
-      taskLogs.value = res.data.logs
+      const res = await tasksApi.getLogs(currentTask.value.id, { limit: 50 })
+      taskLogs.value = res.data
+        .map((log) => `[${log.created_at}] [${log.event_type}] ${log.message}`)
+        .join('\n')
     } catch (e) {
       console.error(e)
     }
@@ -167,7 +169,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     if (!currentTask.value) return
     try {
       const res = await tasksApi.retry(currentTask.value.id)
-      currentTask.value = res.data
+      currentTask.value = res.data.task
       startPolling()
     } catch (e) {
       console.error(e)

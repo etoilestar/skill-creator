@@ -22,12 +22,12 @@ export const useChatStore = defineStore('chat', () => {
   const agentStreaming = ref(false)
   const agentStreamingContent = ref('')
 
-  async function createSession() {
+  async function createSession(initialMessage?: string) {
     try {
-      const res = await sessionsApi.create()
+      const res = await sessionsApi.create(initialMessage || '我想创建一个新的 Skill')
       currentSession.value = res.data
       messages.value = res.data.messages || []
-      requirementScore.value = res.data.requirement_score || 0
+      requirementScore.value = res.data.completeness_score || 0
     } catch (e) {
       console.error(e)
       throw e
@@ -39,7 +39,7 @@ export const useChatStore = defineStore('chat', () => {
       const res = await sessionsApi.get(id)
       currentSession.value = res.data
       messages.value = res.data.messages || []
-      requirementScore.value = res.data.requirement_score || 0
+      requirementScore.value = res.data.completeness_score || 0
     } catch (e) {
       console.error(e)
       throw e
@@ -63,7 +63,7 @@ export const useChatStore = defineStore('chat', () => {
       const response = await fetch(`/api/v1/sessions/${currentSession.value.id}/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content })
+        body: JSON.stringify({ message: content })
       })
       const reader = response.body!.getReader()
       const decoder = new TextDecoder()
@@ -85,7 +85,7 @@ export const useChatStore = defineStore('chat', () => {
                 if (data.session) {
                   currentSession.value = data.session
                   messages.value = data.session.messages || []
-                  requirementScore.value = data.session.requirement_score || 0
+                  requirementScore.value = data.session.completeness_score || 0
                 } else {
                   const assistantMsg: Message = {
                     id: (Date.now() + 1).toString(),
@@ -115,7 +115,7 @@ export const useChatStore = defineStore('chat', () => {
     if (!currentSession.value) return
     try {
       const res = await sessionsApi.confirm(currentSession.value.id)
-      return res.data
+      return res.data.task
     } catch (e) {
       console.error(e)
       throw e

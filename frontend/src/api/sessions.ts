@@ -10,18 +10,21 @@ export interface Message {
 export interface Session {
   id: string
   messages: Message[]
-  requirement_score?: number
+  completeness_score: number
+  requirement_spec?: Record<string, unknown>
   status: string
   created_at: string
 }
 
 export const sessionsApi = {
-  create: () => http.post<Session>('/sessions'),
+  create: (message: string) => http.post<Session>('/sessions', { message }),
   get: (id: string) => http.get<Session>(`/sessions/${id}`),
-  sendMessage: (id: string, content: string, attachments?: string[]) =>
-    http.post<Message>(`/sessions/${id}/messages`, { content, attachments }),
-  getRequirement: (id: string) => http.get(`/sessions/${id}/requirement`),
-  confirm: (id: string) => http.post(`/sessions/${id}/confirm`),
+  sendMessage: (id: string, message: string) =>
+    http.post<{ ai_reply: string; session: Session }>(`/sessions/${id}/messages`, { message }),
+  getRequirement: (id: string) =>
+    http.get<{ session_id: string; requirement_spec: Record<string, unknown>; completeness_score: number; can_create: boolean }>(`/sessions/${id}/requirement`),
+  confirm: (id: string) =>
+    http.post<{ message: string; task: { id: string; status: string; skill_name?: string } }>(`/sessions/${id}/confirm`),
   uploadAttachment: (id: string, file: File) => {
     const form = new FormData()
     form.append('file', file)

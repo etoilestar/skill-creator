@@ -8,7 +8,7 @@ export const agentApi = {
     const response = await fetch('/api/v1/agent/stream', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message, session_id: sessionId })
+      body: JSON.stringify({ query: message, session_id: sessionId })
     })
     const reader = response.body!.getReader()
     const decoder = new TextDecoder()

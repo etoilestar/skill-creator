@@ -15,7 +15,7 @@ async function loadSkills() {
   loading.value = true
   try {
     const res = await skillsApi.list()
-    skills.value = res.data
+    skills.value = res.data.skills
   } catch (e) {
     console.error(e)
   } finally {
@@ -31,7 +31,7 @@ async function searchSkills(q: string) {
   loading.value = true
   try {
     const res = await skillsApi.search(q)
-    skills.value = res.data
+    skills.value = res.data.results
   } catch (e) {
     console.error(e)
   } finally {
@@ -77,16 +77,6 @@ function importZip() {
   input.click()
 }
 
-function getStatusType(status: string): 'success' | 'warning' | 'danger' | 'info' {
-  const map: Record<string, 'success' | 'warning' | 'danger' | 'info'> = {
-    CREATED: 'success',
-    CREATING: 'warning',
-    PENDING: 'info',
-    CREATION_FAILED: 'danger',
-    ITERATING: 'warning',
-  }
-  return map[status] || 'info'
-}
 
 onMounted(loadSkills)
 </script>
@@ -116,27 +106,20 @@ onMounted(loadSkills)
       <div v-loading="loading" class="skill-grid">
         <el-empty v-if="!loading && skills.length === 0" description="No skills found" />
         <el-card
-          v-for="skill in skills"
-          :key="skill.task_id"
+          v-for="(skill, idx) in skills"
+          :key="skill.task_id || idx"
           class="skill-card"
           shadow="hover"
         >
           <template #header>
             <div class="card-header">
               <span class="skill-name">{{ skill.name }}</span>
-              <el-tag :type="getStatusType(skill.status)" size="small">{{ skill.status }}</el-tag>
             </div>
           </template>
           <p class="skill-desc">{{ skill.description }}</p>
-          <div v-if="skill.tags?.length" class="skill-tags">
-            <el-tag v-for="tag in skill.tags" :key="tag" size="small" class="tag-item">{{ tag }}</el-tag>
-          </div>
-          <div class="skill-meta">
-            <span>{{ new Date(skill.created_at).toLocaleDateString() }}</span>
-          </div>
           <div class="skill-actions">
-            <el-button size="small" type="primary" @click="openSkill(skill.task_id)">Open</el-button>
-            <el-button size="small" type="danger" @click="deleteSkill(skill.task_id)">Delete</el-button>
+            <el-button v-if="skill.task_id" size="small" type="primary" @click="openSkill(skill.task_id)">Open</el-button>
+            <el-button v-if="skill.task_id" size="small" type="danger" @click="deleteSkill(skill.task_id)">Delete</el-button>
           </div>
         </el-card>
       </div>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { filesApi } from '@/api/files'
 import type { FileNode } from '@/api/files'
@@ -28,7 +28,6 @@ function toTreeNodes(nodes: FileNode[]): TreeNode[] {
 }
 
 const treeData = computed(() => toTreeNodes(fileTree.value))
-const contextNode = ref<TreeNode | null>(null)
 
 async function handleNodeClick(data: TreeNode) {
   if (data.type === 'file') {
@@ -75,9 +74,6 @@ async function newFile() {
     ElMessage.error('Failed to create file')
   }
 }
-
-// suppress unused warning
-contextNode.value
 </script>
 
 <template>

@@ -18,7 +18,7 @@ async function selectTask(id: string) {
   <div class="sidebar-panel">
     <div class="task-selector">
       <el-select :model-value="currentTaskId" placeholder="Select task..." size="small" style="width: 100%" @change="selectTask">
-        <el-option v-for="task in tasks" :key="task.id" :label="task.name || task.id" :value="task.id" />
+        <el-option v-for="task in tasks" :key="task.id" :label="task.skill_name || task.id" :value="task.id" />
       </el-select>
     </div>
     <el-tabs class="sidebar-tabs">

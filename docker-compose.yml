@@ -153,6 +153,26 @@ services:
       - skillfactory_net
 
   # ------------------------------------------------------------------
+  # 前端 Web 服务（Vue 3 + Nginx）
+  # 职责：托管前端静态资源，并将 /api 请求反向代理到 api 服务
+  # 访问地址：http://localhost:${FRONTEND_PORT:-3000}
+  # ------------------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: skillfactory-frontend:latest
+    container_name: skillfactory-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-3000}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - skillfactory_net
+
+  # ------------------------------------------------------------------
   # Celery Flower 任务监控面板（可选）
   # 职责：实时监控 Celery 任务状态、队列深度、Worker 状态
   # 访问地址：http://localhost:5555
