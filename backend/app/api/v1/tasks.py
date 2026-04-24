@@ -39,8 +39,14 @@ def list_tasks():
         分页的任务列表。
     """
     status_filter = request.args.get("status")
-    page = int(request.args.get("page", 1))
-    per_page = min(int(request.args.get("per_page", 20)), 100)
+    try:
+        page = max(1, int(request.args.get("page", 1)))
+    except (ValueError, TypeError):
+        page = 1
+    try:
+        per_page = min(max(1, int(request.args.get("per_page", 20))), 100)
+    except (ValueError, TypeError):
+        per_page = 20
 
     query = SkillCreationTask.query.order_by(SkillCreationTask.created_at.desc())
     if status_filter:
@@ -116,6 +122,7 @@ def delete_task(task_id: str):
     return "", 204
 
 
+@tasks_bp.route("/<task_id>", methods=["GET"])
 def get_task(task_id: str):
     """
     获取指定任务的详细信息和当前状态。
@@ -148,16 +155,18 @@ def get_task_logs(task_id: str):
         return jsonify({"error": {"code": "TASK_NOT_FOUND", "message": "任务不存在"}}), 404
 
     event_type_filter = request.args.get("event_type")
-    limit = min(int(request.args.get("limit", 100)), 500)
+    try:
+        limit = min(max(1, int(request.args.get("limit", 100))), 500)
+    except (ValueError, TypeError):
+        limit = 100
 
     query = (
         TaskEventLog.query
         .filter_by(task_id=task_id)
-        .order_by(TaskEventLog.created_at.desc())
-        .limit(limit)
     )
     if event_type_filter:
         query = query.filter_by(event_type=event_type_filter)
+    query = query.order_by(TaskEventLog.created_at.desc()).limit(limit)
 
     logs = query.all()
     return jsonify([log.to_dict() for log in logs])

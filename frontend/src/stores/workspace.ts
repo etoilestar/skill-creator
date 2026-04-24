@@ -165,7 +165,10 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     try {
       const res = await tasksApi.getLogs(currentTask.value.id, { limit: 50 })
       taskLogs.value = res.data
-        .map((log) => `[${log.created_at}] [${log.event_type}] ${log.message}`)
+        .map((log) => {
+          const detail = log.event_data ? JSON.stringify(log.event_data) : ''
+          return `[${log.created_at}] [${log.event_type}] ${detail}`
+        })
         .join('\n')
     } catch (e) {
       console.error(e)

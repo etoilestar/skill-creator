@@ -15,7 +15,7 @@ export interface TaskLog {
   id: string
   task_id: string
   event_type: string
-  message: string
+  event_data: Record<string, unknown>
   created_at: string
 }
 
