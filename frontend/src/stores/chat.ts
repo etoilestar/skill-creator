@@ -3,6 +3,16 @@ import { ref } from 'vue'
 import { sessionsApi, type Session, type Message } from '@/api/sessions'
 import { agentApi } from '@/api/agent'
 
+/** Normalize raw backend message objects (which lack an `id` field and use `timestamp`) into the frontend Message shape. */
+function normalizeMessages(raw: any[]): Message[] {
+  return (raw || []).map((m: any, idx: number) => ({
+    id: String(idx),
+    role: m.role,
+    content: m.content,
+    created_at: m.created_at || m.timestamp || new Date().toISOString(),
+  }))
+}
+
 export interface AgentMessage {
   role: 'user' | 'assistant' | 'status'
   content: string
@@ -26,8 +36,17 @@ export const useChatStore = defineStore('chat', () => {
     try {
       const res = await sessionsApi.create(initialMessage || '我想创建一个新的 Skill')
       currentSession.value = res.data
-      messages.value = res.data.messages || []
+      messages.value = normalizeMessages(res.data.messages)
       requirementScore.value = res.data.completeness_score || 0
+    } catch (e) {
+      console.error(e)
+      throw e
+    }
+  }
+
+  async function clearSession() {
+    try {
+      await createSession()
     } catch (e) {
       console.error(e)
       throw e
@@ -38,7 +57,7 @@ export const useChatStore = defineStore('chat', () => {
     try {
       const res = await sessionsApi.get(id)
       currentSession.value = res.data
-      messages.value = res.data.messages || []
+      messages.value = normalizeMessages(res.data.messages)
       requirementScore.value = res.data.completeness_score || 0
     } catch (e) {
       console.error(e)
@@ -84,7 +103,7 @@ export const useChatStore = defineStore('chat', () => {
               } else if (data.type === 'done') {
                 if (data.session) {
                   currentSession.value = data.session
-                  messages.value = data.session.messages || []
+                  messages.value = normalizeMessages(data.session.messages)
                   requirementScore.value = data.session.completeness_score || 0
                 } else {
                   const assistantMsg: Message = {
@@ -161,6 +180,7 @@ export const useChatStore = defineStore('chat', () => {
     agentStreaming,
     agentStreamingContent,
     createSession,
+    clearSession,
     loadSession,
     sendMessage,
     confirmCreation,

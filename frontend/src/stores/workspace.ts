@@ -70,7 +70,14 @@ export const useWorkspaceStore = defineStore('workspace', () => {
         const res = await tasksApi.get(currentTask.value.id)
         const prev = currentTask.value.status
         currentTask.value = res.data
+        // Keep task list in sync so the sidebar dropdown reflects status changes
+        const idx = tasks.value.findIndex(t => t.id === res.data.id)
+        if (idx !== -1) tasks.value[idx] = res.data
         if (res.data.status === 'CREATED' && prev !== 'CREATED') {
+          await loadFileTree()
+        }
+        // Refresh file tree while Celery is actively writing files
+        if (res.data.status === 'CREATING') {
           await loadFileTree()
         }
         await loadLogs()

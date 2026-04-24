@@ -2,7 +2,7 @@
 import { ref, computed, nextTick, watch } from 'vue'
 import { useChatStore } from '@/stores/chat'
 import { useWorkspaceStore } from '@/stores/workspace'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { sessionsApi } from '@/api/sessions'
 
 const chatStore = useChatStore()
@@ -41,6 +41,25 @@ async function send() {
 
 async function newSession() {
   try { await chatStore.createSession() } catch { ElMessage.error('Failed to create session') }
+}
+
+async function clearSession() {
+  try {
+    await ElMessageBox.confirm('清空当前对话并重置需求？此操作不可撤销。', '清空对话', {
+      confirmButtonText: '确认清空',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
+    await chatStore.clearSession()
+    ElMessage.success('对话已清空')
+  } catch (e: any) {
+    if (e !== 'cancel') ElMessage.error('Failed to clear session')
+  }
+}
+
+function handleSessionCommand(cmd: string) {
+  if (cmd === 'new') newSession()
+  else if (cmd === 'clear') clearSession()
 }
 
 async function confirm() {
@@ -97,7 +116,15 @@ init()
         size="small"
         style="flex: 1"
       />
-      <el-button text size="small" @click="newSession">New</el-button>
+      <el-dropdown size="small" @command="handleSessionCommand">
+        <el-button text size="small">管理<el-icon class="el-icon--right"><ArrowDown /></el-icon></el-button>
+        <template #dropdown>
+          <el-dropdown-menu>
+            <el-dropdown-item command="new">新建对话</el-dropdown-item>
+            <el-dropdown-item command="clear" divided>清空当前对话</el-dropdown-item>
+          </el-dropdown-menu>
+        </template>
+      </el-dropdown>
     </div>
 
     <div class="messages" ref="messagesEl">
