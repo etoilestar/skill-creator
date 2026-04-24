@@ -17,14 +17,14 @@ async function selectTask(id: string) {
 <template>
   <div class="sidebar-panel">
     <div class="task-selector">
-      <el-select :model-value="currentTaskId" placeholder="Select task..." size="small" style="width: 100%" @change="selectTask">
+      <el-select :model-value="currentTaskId" placeholder="选择任务..." size="small" style="width: 100%" @change="selectTask">
         <el-option v-for="task in tasks" :key="task.id" :label="task.skill_name || task.id" :value="task.id" />
       </el-select>
     </div>
     <el-tabs class="sidebar-tabs">
-      <el-tab-pane label="Task"><TaskInfo /></el-tab-pane>
-      <el-tab-pane label="Files"><FileTree /></el-tab-pane>
-      <el-tab-pane label="Tests"><TestPanel /></el-tab-pane>
+      <el-tab-pane label="任务"><TaskInfo /></el-tab-pane>
+      <el-tab-pane label="文件"><FileTree /></el-tab-pane>
+      <el-tab-pane label="测试"><TestPanel /></el-tab-pane>
     </el-tabs>
   </div>
 </template>

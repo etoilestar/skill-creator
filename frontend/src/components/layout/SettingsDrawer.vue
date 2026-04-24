@@ -39,16 +39,16 @@ async function saveModel() {
     }
     showDialog.value = false
   } catch {
-    ElMessage.error('Failed to save model')
+    ElMessage.error('模型保存失败')
   }
 }
 
 async function deleteModel(id: string) {
-  try { await systemStore.deleteModel(id) } catch { ElMessage.error('Failed to delete model') }
+  try { await systemStore.deleteModel(id) } catch { ElMessage.error('模型删除失败') }
 }
 
 async function activateModel(id: string) {
-  try { await systemStore.activateModel(id) } catch { ElMessage.error('Failed to activate model') }
+  try { await systemStore.activateModel(id) } catch { ElMessage.error('激活失败') }
 }
 
 async function testModel(id: string) {
@@ -56,10 +56,10 @@ async function testModel(id: string) {
   try {
     const result = await systemStore.testModel(id)
     testResults.value[id] = result
-    if (result.success) ElMessage.success(`Connected! Latency: ${result.latency_ms ?? '?'}ms`)
-    else ElMessage.error(`Connection failed: ${result.error || ''}`)
+    if (result.success) ElMessage.success(`连接成功！延迟: ${result.latency_ms ?? '?'}ms`)
+    else ElMessage.error(`连接失败: ${result.error || ''}`)
   } catch {
-    ElMessage.error('Test failed')
+    ElMessage.error('测试失败')
   }
 }
 
@@ -67,52 +67,52 @@ onMounted(() => systemStore.loadModels())
 </script>
 
 <template>
-  <el-drawer :model-value="visible" title="Settings" size="520px" @update:model-value="emit('update:visible', $event)">
+  <el-drawer :model-value="visible" title="设置" size="520px" @update:model-value="emit('update:visible', $event)">
     <div class="settings-section">
       <div class="section-header">
-        <h3>Model Configurations</h3>
-        <el-button type="primary" size="small" @click="openAdd">Add Model</el-button>
+        <h3>模型配置</h3>
+        <el-button type="primary" size="small" @click="openAdd">添加模型</el-button>
       </div>
       <el-table :data="systemStore.modelConfigs" size="small" v-loading="systemStore.loadingModels">
-        <el-table-column prop="name" label="Name" />
-        <el-table-column prop="provider" label="Provider" />
-        <el-table-column prop="model_name" label="Model" />
-        <el-table-column label="Active" width="60">
+        <el-table-column prop="name" label="名称" />
+        <el-table-column prop="provider" label="提供商" />
+        <el-table-column prop="model_name" label="模型" />
+        <el-table-column label="启用" width="60">
           <template #default="{ row }">
             <el-icon v-if="row.is_active" color="#67c23a"><StarFilled /></el-icon>
             <el-icon v-else color="#ddd"><Star /></el-icon>
           </template>
         </el-table-column>
-        <el-table-column label="Actions" width="160">
+        <el-table-column label="操作" width="160">
           <template #default="{ row }">
-            <el-button link size="small" @click="openEdit(row)">Edit</el-button>
-            <el-button link size="small" @click="activateModel(row.id)">Activate</el-button>
-            <el-button link size="small" @click="testModel(row.id)">Test</el-button>
-            <el-button link size="small" type="danger" @click="deleteModel(row.id)">Del</el-button>
+            <el-button link size="small" @click="openEdit(row)">编辑</el-button>
+            <el-button link size="small" @click="activateModel(row.id)">激活</el-button>
+            <el-button link size="small" @click="testModel(row.id)">测试</el-button>
+            <el-button link size="small" type="danger" @click="deleteModel(row.id)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
     </div>
 
-    <el-dialog v-model="showDialog" :title="isEdit ? 'Edit Model' : 'Add Model'" width="460px" append-to-body>
+    <el-dialog v-model="showDialog" :title="isEdit ? '编辑模型' : '添加模型'" width="460px" append-to-body>
       <el-form :model="editingModel" label-width="100px" v-if="editingModel">
-        <el-form-item label="Name" required><el-input v-model="editingModel.name" /></el-form-item>
-        <el-form-item label="Provider">
-          <el-select v-model="editingModel.provider" placeholder="Select provider" style="width: 100%">
+        <el-form-item label="名称" required><el-input v-model="editingModel.name" /></el-form-item>
+        <el-form-item label="提供商">
+          <el-select v-model="editingModel.provider" placeholder="选择提供商" style="width: 100%">
             <el-option label="OpenAI" value="openai" />
             <el-option label="Azure OpenAI" value="azure" />
-            <el-option label="Local (OpenAI compat)" value="local_openai_compat" />
+            <el-option label="本地兼容接口" value="local_openai_compat" />
           </el-select>
         </el-form-item>
-        <el-form-item label="Model Name"><el-input v-model="editingModel.model_name" placeholder="gpt-4o, etc." /></el-form-item>
-        <el-form-item label="API Key"><el-input v-model="editingModel.api_key" type="password" show-password :placeholder="isEdit ? 'Leave blank to keep current' : ''" /></el-form-item>
-        <el-form-item label="Base URL"><el-input v-model="editingModel.api_base_url" placeholder="https://api.openai.com/v1" /></el-form-item>
-        <el-form-item label="Max Tokens"><el-input-number v-model="editingModel.max_tokens" :min="1" :max="128000" /></el-form-item>
-        <el-form-item label="Temperature"><el-slider v-model="editingModel.temperature" :min="0" :max="2" :step="0.1" /></el-form-item>
+        <el-form-item label="模型名称"><el-input v-model="editingModel.model_name" placeholder="gpt-4o 等" /></el-form-item>
+        <el-form-item label="API 密钥"><el-input v-model="editingModel.api_key" type="password" show-password :placeholder="isEdit ? '留空保持不变' : ''" /></el-form-item>
+        <el-form-item label="接口地址"><el-input v-model="editingModel.api_base_url" placeholder="https://api.openai.com/v1" /></el-form-item>
+        <el-form-item label="最大 Token 数"><el-input-number v-model="editingModel.max_tokens" :min="1" :max="128000" /></el-form-item>
+        <el-form-item label="随机性"><el-slider v-model="editingModel.temperature" :min="0" :max="2" :step="0.1" /></el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showDialog = false">Cancel</el-button>
-        <el-button type="primary" @click="saveModel">Save</el-button>
+        <el-button @click="showDialog = false">取消</el-button>
+        <el-button type="primary" @click="saveModel">保存</el-button>
       </template>
     </el-dialog>
   </el-drawer>

@@ -18,8 +18,8 @@ onMounted(() => systemStore.loadKernels())
       </el-badge>
     </template>
     <div class="kernel-popover">
-      <div class="kernel-header">Kernels ({{ systemStore.kernels.length }})</div>
-      <div v-if="systemStore.kernels.length === 0" class="kernel-empty">No kernels</div>
+      <div class="kernel-header">内核列表 ({{ systemStore.kernels.length }})</div>
+      <div v-if="systemStore.kernels.length === 0" class="kernel-empty">暂无内核</div>
       <div v-for="kernel in systemStore.kernels" :key="kernel.id" class="kernel-item">
         <div class="kernel-info">
           <span class="kernel-name">{{ kernel.name }}</span>

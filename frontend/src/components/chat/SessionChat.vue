@@ -33,14 +33,14 @@ async function send() {
     await chatStore.sendMessage(text)
     await scrollToBottom()
   } catch {
-    ElMessage.error('Failed to send message')
+    ElMessage.error('消息发送失败')
   } finally {
     sending.value = false
   }
 }
 
 async function newSession() {
-  try { await chatStore.createSession() } catch { ElMessage.error('Failed to create session') }
+  try { await chatStore.createSession() } catch { ElMessage.error('创建对话失败') }
 }
 
 async function clearSession() {
@@ -53,7 +53,7 @@ async function clearSession() {
     await chatStore.clearSession()
     ElMessage.success('对话已清空')
   } catch (e: unknown) {
-    if (e !== 'cancel') ElMessage.error('Failed to clear session')
+    if (e !== 'cancel') ElMessage.error('清空对话失败')
   }
 }
 
@@ -66,13 +66,13 @@ async function confirm() {
   confirming.value = true
   try {
     const result = await chatStore.confirmCreation()
-    ElMessage.success('Creation started!')
+    ElMessage.success('已开始创建 Skill！')
     if (result?.id) {
       await workspaceStore.loadTasks()
       await workspaceStore.selectTask(result.id)
     }
   } catch {
-    ElMessage.error('Failed to start creation')
+    ElMessage.error('启动创建失败')
   } finally {
     confirming.value = false
   }
@@ -92,9 +92,9 @@ function handleAttachment() {
     if (!file) return
     try {
       await sessionsApi.uploadAttachment(chatStore.currentSession!.id, file)
-      ElMessage.success('Attachment uploaded')
+      ElMessage.success('附件上传成功')
     } catch {
-      ElMessage.error('Upload failed')
+      ElMessage.error('上传失败')
     }
   }
   input.click()
@@ -111,7 +111,7 @@ init()
     <div class="chat-header">
       <el-progress
         :percentage="score"
-        :format="(p: number) => `Score: ${p}`"
+        :format="(p: number) => `完整度: ${p}`"
         :status="score >= 80 ? 'success' : undefined"
         size="small"
         style="flex: 1"
@@ -140,21 +140,21 @@ init()
         </div>
       </div>
       <div v-if="messages.length === 0 && !streaming" class="chat-empty">
-        <el-text type="info" size="small">Describe the skill you want to create...</el-text>
+        <el-text type="info" size="small">请描述您想创建的 Skill...</el-text>
       </div>
     </div>
 
     <div v-if="score >= 80" class="confirm-bar">
       <el-button type="success" size="small" :loading="confirming" @click="confirm" style="width: 100%">
-        ✅ Start Skill Creation
+        ✅ 开始创建 Skill
       </el-button>
     </div>
 
     <div class="input-area">
-      <el-input v-model="inputText" type="textarea" :rows="3" placeholder="Describe the skill..." :disabled="sending || streaming" @keydown.enter.exact.prevent="send" />
+      <el-input v-model="inputText" type="textarea" :rows="3" placeholder="请描述您想创建的 Skill..." :disabled="sending || streaming" @keydown.enter.exact.prevent="send" />
       <div class="input-actions">
         <el-button text size="small" @click="handleAttachment"><el-icon><Paperclip /></el-icon></el-button>
-        <el-button type="primary" size="small" :loading="sending || streaming" @click="send">Send</el-button>
+        <el-button type="primary" size="small" :loading="sending || streaming" @click="send">发送</el-button>
       </div>
     </div>
   </div>

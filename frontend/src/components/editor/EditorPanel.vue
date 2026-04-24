@@ -33,9 +33,9 @@ async function saveCurrentFile() {
   if (!activeFile.value) return
   try {
     await workspaceStore.saveFile(activeFile.value)
-    ElMessage.success('Saved')
+    ElMessage.success('已保存')
   } catch {
-    ElMessage.error('Save failed')
+    ElMessage.error('保存失败')
   }
 }
 
@@ -58,7 +58,7 @@ const isUnsaved = (path: string) => {
 <template>
   <div class="editor-panel">
     <div v-if="openFiles.length === 0" class="editor-empty">
-      <el-empty description="Open a file from the sidebar" />
+      <el-empty description="请从左侧文件树选择文件" />
     </div>
     <template v-else>
       <div class="editor-tabs">
@@ -81,11 +81,11 @@ const isUnsaved = (path: string) => {
 
       <div class="editor-toolbar">
         <el-button size="small" type="primary" @click="saveCurrentFile" :disabled="!activeFile">
-          <el-icon><DocumentChecked /></el-icon> Save
+          <el-icon><DocumentChecked /></el-icon> 保存
         </el-button>
         <template v-if="isSkillMd">
-          <el-button size="small" :type="!previewMode ? 'primary' : 'default'" @click="previewMode = false">Edit</el-button>
-          <el-button size="small" :type="previewMode ? 'primary' : 'default'" @click="previewMode = true">Preview</el-button>
+          <el-button size="small" :type="!previewMode ? 'primary' : 'default'" @click="previewMode = false">编辑</el-button>
+          <el-button size="small" :type="previewMode ? 'primary' : 'default'" @click="previewMode = true">预览</el-button>
         </template>
       </div>
 

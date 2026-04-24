@@ -18,8 +18,8 @@ function navigate(key: string) {
     <div class="header-left">
       <div class="logo">🔧 Skill Creator</div>
       <el-menu mode="horizontal" :ellipsis="false" class="nav-menu" @select="navigate">
-        <el-menu-item index="workbench">Workbench</el-menu-item>
-        <el-menu-item index="library">Library</el-menu-item>
+        <el-menu-item index="workbench">工作台</el-menu-item>
+        <el-menu-item index="library">技能库</el-menu-item>
       </el-menu>
     </div>
     <div class="header-right">

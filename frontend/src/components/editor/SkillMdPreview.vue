@@ -18,7 +18,7 @@ const bodyContent = computed(() => {
 <template>
   <div class="skill-md-preview">
     <div v-if="frontmatterContent" class="frontmatter-section">
-      <div class="frontmatter-label">YAML Frontmatter</div>
+      <div class="frontmatter-label">YAML 元数据</div>
       <pre class="frontmatter-content">{{ frontmatterContent }}</pre>
     </div>
     <div class="markdown-body" v-html="bodyContent" />

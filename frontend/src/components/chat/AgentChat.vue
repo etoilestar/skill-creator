@@ -22,7 +22,7 @@ async function send() {
     await chatStore.sendAgentMessage(text)
     await scrollToBottom()
   } catch {
-    ElMessage.error('Agent request failed')
+    ElMessage.error('智能体请求失败')
   } finally {
     sending.value = false
   }
@@ -50,7 +50,7 @@ watch(agentStreamContent, scrollToBottom)
           <div v-if="msg.skillName" class="skill-card">
             <el-icon><Cpu /></el-icon>
             <strong>{{ msg.skillName }}</strong>
-            <el-tag type="success" size="small">Matched</el-tag>
+            <el-tag type="success" size="small">已匹配</el-tag>
           </div>
         </div>
       </div>
@@ -60,14 +60,14 @@ watch(agentStreamContent, scrollToBottom)
         </div>
       </div>
       <div v-if="agentMessages.length === 0 && !agentStreaming" class="chat-empty">
-        <el-text type="info" size="small">Ask the agent to find or execute a skill...</el-text>
+        <el-text type="info" size="small">向智能体发送指令，查找或执行 Skill...</el-text>
       </div>
     </div>
 
     <div class="input-area">
-      <el-input v-model="inputText" type="textarea" :rows="3" placeholder="Ask the agent..." :disabled="sending || agentStreaming" @keydown.enter.exact.prevent="send" />
+      <el-input v-model="inputText" type="textarea" :rows="3" placeholder="向智能体发送指令..." :disabled="sending || agentStreaming" @keydown.enter.exact.prevent="send" />
       <div class="input-actions">
-        <el-button type="primary" size="small" :loading="sending || agentStreaming" @click="send">Send</el-button>
+        <el-button type="primary" size="small" :loading="sending || agentStreaming" @click="send">发送</el-button>
       </div>
     </div>
   </div>

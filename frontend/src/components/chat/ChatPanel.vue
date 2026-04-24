@@ -9,10 +9,10 @@ const activeTab = ref('session')
 <template>
   <div class="chat-panel">
     <el-tabs v-model="activeTab" class="chat-tabs">
-      <el-tab-pane label="Session" name="session">
+      <el-tab-pane label="对话" name="session">
         <SessionChat />
       </el-tab-pane>
-      <el-tab-pane label="Agent" name="agent">
+      <el-tab-pane label="智能体" name="agent">
         <AgentChat />
       </el-tab-pane>
     </el-tabs>

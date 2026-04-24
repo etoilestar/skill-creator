@@ -45,13 +45,13 @@ function onSearchInput(val: string) {
 }
 
 async function deleteSkill(taskId: string) {
-  await ElMessageBox.confirm('Delete this skill?', 'Confirm', { type: 'warning' })
+  await ElMessageBox.confirm('确认删除该 Skill？', '确认', { type: 'warning' })
   try {
     await skillsApi.delete(taskId)
     skills.value = skills.value.filter((s: Skill) => s.task_id !== taskId)
-    ElMessage.success('Skill deleted')
+    ElMessage.success('Skill 已删除')
   } catch {
-    ElMessage.error('Failed to delete skill')
+    ElMessage.error('删除 Skill 失败')
   }
 }
 
@@ -68,10 +68,10 @@ function importZip() {
     if (!file) return
     try {
       await skillsApi.import(file)
-      ElMessage.success('Skill imported')
+      ElMessage.success('Skill 导入成功')
       await loadSkills()
     } catch {
-      ElMessage.error('Failed to import skill')
+      ElMessage.error('导入 Skill 失败')
     }
   }
   input.click()
@@ -88,7 +88,7 @@ onMounted(loadSkills)
       <div class="library-toolbar">
         <el-input
           v-model="searchQuery"
-          placeholder="Search skills..."
+          placeholder="搜索 Skill..."
           clearable
           style="width: 300px"
           @input="onSearchInput"
@@ -99,12 +99,12 @@ onMounted(loadSkills)
         </el-input>
         <el-button type="primary" @click="importZip">
           <el-icon><Upload /></el-icon>
-          Import ZIP
+          导入 ZIP
         </el-button>
       </div>
 
       <div v-loading="loading" class="skill-grid">
-        <el-empty v-if="!loading && skills.length === 0" description="No skills found" />
+        <el-empty v-if="!loading && skills.length === 0" description="暂无 Skill" />
         <el-card
           v-for="(skill, idx) in skills"
           :key="skill.task_id || idx"
@@ -118,8 +118,8 @@ onMounted(loadSkills)
           </template>
           <p class="skill-desc">{{ skill.description }}</p>
           <div class="skill-actions">
-            <el-button v-if="skill.task_id" size="small" type="primary" @click="openSkill(skill.task_id)">Open</el-button>
-            <el-button v-if="skill.task_id" size="small" type="danger" @click="deleteSkill(skill.task_id)">Delete</el-button>
+            <el-button v-if="skill.task_id" size="small" type="primary" @click="openSkill(skill.task_id)">打开</el-button>
+            <el-button v-if="skill.task_id" size="small" type="danger" @click="deleteSkill(skill.task_id)">删除</el-button>
           </div>
         </el-card>
       </div>

@@ -37,41 +37,41 @@ async function handleNodeClick(data: TreeNode) {
 
 async function renameNode(node: TreeNode) {
   if (!currentTask.value) return
-  const { value } = await ElMessageBox.prompt('New name:', 'Rename', { inputValue: node.label })
+  const { value } = await ElMessageBox.prompt('新文件名：', '重命名', { inputValue: node.label })
   if (!value) return
   const dir = node.path.includes('/') ? node.path.substring(0, node.path.lastIndexOf('/')) : ''
   const newPath = dir ? `${dir}/${value}` : value
   try {
     await filesApi.rename(currentTask.value.id, node.path, newPath)
     await workspaceStore.loadFileTree()
-    ElMessage.success('Renamed')
+    ElMessage.success('重命名成功')
   } catch {
-    ElMessage.error('Rename failed')
+    ElMessage.error('重命名失败')
   }
 }
 
 async function deleteNode(node: TreeNode) {
   if (!currentTask.value) return
-  await ElMessageBox.confirm(`Delete "${node.label}"?`, 'Confirm', { type: 'warning' })
+  await ElMessageBox.confirm(`确认删除 "${node.label}"？`, '确认', { type: 'warning' })
   try {
     await filesApi.delete(currentTask.value.id, node.path)
     await workspaceStore.loadFileTree()
-    ElMessage.success('Deleted')
+    ElMessage.success('删除成功')
   } catch {
-    ElMessage.error('Delete failed')
+    ElMessage.error('删除失败')
   }
 }
 
 async function newFile() {
   if (!currentTask.value) return
-  const { value: name } = await ElMessageBox.prompt('File name:', 'New File', { inputValue: 'new_file.py' })
+  const { value: name } = await ElMessageBox.prompt('文件名：', '新建文件', { inputValue: 'new_file.py' })
   if (!name) return
   try {
     await filesApi.write(currentTask.value.id, name, '')
     await workspaceStore.loadFileTree()
     await workspaceStore.openFile(name)
   } catch {
-    ElMessage.error('Failed to create file')
+    ElMessage.error('创建文件失败')
   }
 }
 </script>
@@ -80,15 +80,15 @@ async function newFile() {
   <div class="file-tree">
     <div class="tree-toolbar">
       <el-button text size="small" @click="newFile" :disabled="!currentTask">
-        <el-icon><Plus /></el-icon> New File
+        <el-icon><Plus /></el-icon> 新建文件
       </el-button>
       <el-button text size="small" @click="workspaceStore.loadFileTree()" :disabled="!currentTask">
         <el-icon><Refresh /></el-icon>
       </el-button>
     </div>
     <div v-if="treeData.length === 0" class="tree-empty">
-      <el-text v-if="currentTask" type="info" size="small">No files</el-text>
-      <el-text v-else type="info" size="small">Select a task</el-text>
+      <el-text v-if="currentTask" type="info" size="small">暂无文件</el-text>
+      <el-text v-else type="info" size="small">请先选择任务</el-text>
     </div>
     <el-tree
       v-else
@@ -109,8 +109,8 @@ async function newFile() {
           </span>
           <template #dropdown>
             <el-dropdown-menu>
-              <el-dropdown-item @click="renameNode(data)">Rename</el-dropdown-item>
-              <el-dropdown-item @click="deleteNode(data)">Delete</el-dropdown-item>
+              <el-dropdown-item @click="renameNode(data)">重命名</el-dropdown-item>
+              <el-dropdown-item @click="deleteNode(data)">删除</el-dropdown-item>
             </el-dropdown-menu>
           </template>
         </el-dropdown>

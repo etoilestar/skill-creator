@@ -27,10 +27,10 @@ async function runTests() {
   running.value = true
   try {
     await http.post(`/tasks/${currentTask.value.id}/tests`)
-    ElMessage.success('Tests triggered')
+    ElMessage.success('测试已触发')
     await loadTests()
   } catch {
-    ElMessage.error('Failed to run tests')
+    ElMessage.error('运行测试失败')
   } finally {
     running.value = false
   }
@@ -91,18 +91,18 @@ function getStatusType(status: string): 'success' | 'danger' | 'warning' | 'info
   <div class="test-panel">
     <div class="test-toolbar">
       <el-button type="primary" size="small" :disabled="!canTest" :loading="running" @click="runTests">
-        <el-icon><CaretRight /></el-icon> Run Tests
+        <el-icon><CaretRight /></el-icon> 运行测试
       </el-button>
       <el-button text size="small" @click="loadTests" :disabled="!currentTask">
         <el-icon><Refresh /></el-icon>
       </el-button>
     </div>
-    <div v-if="!currentTask" class="test-empty">Select a task</div>
+    <div v-if="!currentTask" class="test-empty">请先选择任务</div>
     <div v-else-if="!canTest" class="test-empty">
-      <el-text type="info" size="small">Tests available when task is CREATED</el-text>
+      <el-text type="info" size="small">Skill 创建完成后可运行测试</el-text>
     </div>
     <div v-else-if="tests.length === 0" class="test-empty">
-      <el-text type="info" size="small">No test runs yet</el-text>
+      <el-text type="info" size="small">暂无测试记录</el-text>
     </div>
     <div v-else class="test-list" v-loading="loading">
       <div v-for="test in tests" :key="test.id" class="test-item" @click="toggleTest(test.id)">
@@ -118,7 +118,7 @@ function getStatusType(status: string): 'success' | 'danger' | 'warning' | 'info
         />
         <el-collapse-transition>
           <div v-if="selectedTest === test.id" class="test-logs">
-            <pre>{{ testLogs[test.id] || 'Loading...' }}</pre>
+            <pre>{{ testLogs[test.id] || '加载中...' }}</pre>
           </div>
         </el-collapse-transition>
       </div>
