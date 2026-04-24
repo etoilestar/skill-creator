@@ -51,10 +51,10 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     try {
       const res = await tasksApi.get(id)
       currentTask.value = res.data
-      if (res.data.status === 'CREATED' || res.data.status === 'ITERATING') {
+      if (res.data.status === 'created' || res.data.status === 'iterating') {
         await loadFileTree()
       }
-      if (res.data.status === 'CREATING' || res.data.status === 'PENDING') {
+      if (res.data.status === 'creating' || res.data.status === 'pending') {
         startPolling()
       }
     } catch (e) {
@@ -73,15 +73,15 @@ export const useWorkspaceStore = defineStore('workspace', () => {
         // Keep task list in sync so the sidebar dropdown reflects status changes
         const idx = tasks.value.findIndex(t => t.id === res.data.id)
         if (idx !== -1) tasks.value[idx] = res.data
-        if (res.data.status === 'CREATED' && prev !== 'CREATED') {
+        if (res.data.status === 'created' && prev !== 'created') {
           await loadFileTree()
         }
         // Refresh file tree while Celery is actively writing files
-        if (res.data.status === 'CREATING') {
+        if (res.data.status === 'creating') {
           await loadFileTree()
         }
         await loadLogs()
-        if (res.data.status === 'CREATED' || res.data.status === 'CREATION_FAILED') {
+        if (res.data.status === 'created' || res.data.status === 'creation_failed') {
           stopPolling()
         }
       } catch (e) {

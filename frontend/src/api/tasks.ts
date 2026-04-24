@@ -3,7 +3,7 @@ import http from './http'
 export interface Task {
   id: string
   skill_name: string
-  status: 'PENDING' | 'CREATING' | 'CREATED' | 'CREATION_FAILED' | 'ITERATING'
+  status: 'pending' | 'creating' | 'created' | 'creation_failed' | 'iterating' | 'draft' | 'testing' | 'passed' | 'failed' | 'test_error'
   created_at: string
   updated_at: string
   workspace_path?: string

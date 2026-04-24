@@ -67,6 +67,7 @@ class FileNode:
         result = {
             "name": self.name,
             "path": self.path,
+            "type": "directory" if self.is_dir else "file",
             "is_dir": self.is_dir,
             "size": self.size,
         }
@@ -117,8 +118,15 @@ class FileService:
 
         Returns:
             FileNode 列表（只包含根目录的直接子节点，节点内含子目录）。
+            当工作区尚未初始化时返回空列表。
         """
-        workspace_root = self.get_workspace_root(task_id)
+        task = SkillCreationTask.query.get(task_id)
+        if task is None:
+            raise TaskNotFoundError(f"任务不存在: {task_id}")
+        # workspace_path 在创建完成前为 None，返回空列表而非报错
+        if not task.workspace_path:
+            return []
+        workspace_root = Path(task.workspace_path).parent
         if not workspace_root.exists():
             return []
         return self._build_file_tree(workspace_root, workspace_root)

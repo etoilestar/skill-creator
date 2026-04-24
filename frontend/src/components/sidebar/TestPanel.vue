@@ -6,7 +6,7 @@ import { ElMessage } from 'element-plus'
 
 const workspaceStore = useWorkspaceStore()
 const currentTask = computed(() => workspaceStore.currentTask)
-const canTest = computed(() => ['CREATED', 'ITERATING'].includes(currentTask.value?.status || ''))
+const canTest = computed(() => ['created', 'iterating'].includes(currentTask.value?.status || ''))
 
 interface TestRun {
   id: string

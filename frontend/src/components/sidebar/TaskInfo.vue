@@ -13,7 +13,8 @@ type TagType = 'success' | 'warning' | 'danger' | 'info'
 
 function getStatusType(status: string): TagType {
   const map: Record<string, TagType> = {
-    PENDING: 'info', CREATING: 'warning', CREATED: 'success', CREATION_FAILED: 'danger', ITERATING: 'warning',
+    pending: 'info', creating: 'warning', created: 'success', creation_failed: 'danger', iterating: 'warning',
+    draft: 'info', testing: 'warning', passed: 'success', failed: 'danger', test_error: 'danger',
   }
   return map[status] || 'info'
 }
@@ -39,14 +40,14 @@ async function retry() {
     </div>
     <p v-if="task.error_message" class="task-desc">{{ task.error_message }}</p>
 
-    <div v-if="task.status === 'CREATING' || task.status === 'PENDING'" class="creating-state">
+    <div v-if="task.status === 'creating' || task.status === 'pending'" class="creating-state">
       <el-icon class="is-loading"><Loading /></el-icon>
-      <span>{{ task.status === 'CREATING' ? 'Creating skill...' : 'Queued...' }}</span>
+      <span>{{ task.status === 'creating' ? 'Creating skill...' : 'Queued...' }}</span>
       <el-button link size="small" @click="showLogs = !showLogs">{{ showLogs ? 'Hide' : 'View' }} Logs</el-button>
       <div v-if="showLogs && logs" class="log-view"><pre>{{ logs }}</pre></div>
     </div>
 
-    <div v-if="task.status === 'CREATION_FAILED'" class="failed-state">
+    <div v-if="task.status === 'creation_failed'" class="failed-state">
       <el-button type="danger" size="small" :loading="retrying" @click="retry">
         <el-icon><RefreshRight /></el-icon> Retry
       </el-button>
@@ -54,7 +55,7 @@ async function retry() {
       <div v-if="showLogs && logs" class="log-view"><pre>{{ logs }}</pre></div>
     </div>
 
-    <div v-if="task.status === 'CREATED'" class="created-info">
+    <div v-if="task.status === 'created'" class="created-info">
       <el-text type="success" size="small">✅ Skill ready</el-text>
     </div>
 
