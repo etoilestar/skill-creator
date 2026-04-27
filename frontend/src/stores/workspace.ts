@@ -230,19 +230,16 @@ export const useWorkspaceStore = defineStore('workspace', () => {
 
   async function runTest() {
     if (!currentTask.value) return
+    // POST to trigger the test — let any error propagate to the caller
+    await http.post(`/tasks/${currentTask.value.id}/tests`)
+    // Refresh task status and restart polling; errors here are non-critical
     try {
-      await http.post(`/tasks/${currentTask.value.id}/tests`)
-      // Refresh task status immediately and start polling for testing updates
       const res = await tasksApi.get(currentTask.value.id)
       currentTask.value = res.data
       const idx = tasks.value.findIndex(t => t.id === res.data.id)
       if (idx !== -1) tasks.value[idx] = res.data
-      stopPolling()
-      startPolling()
-    } catch (e) {
-      console.error(e)
-      throw e
-    }
+    } catch { /* ignore refresh errors — polling will catch up */ }
+    startPolling()
   }
 
   return {
