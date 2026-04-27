@@ -17,15 +17,43 @@ const emptyForm = () => ({
   name: '', provider: '', model_name: '', api_key: '', api_base_url: '', is_active: false as const,
 })
 
+const testingInline = ref(false)
+const inlineTestResult = ref<{ success: boolean; latency_ms?: number; error?: string } | null>(null)
+
+async function testInDialog() {
+  if (!editingModel.value) return
+  testingInline.value = true
+  inlineTestResult.value = null
+  try {
+    const result = await systemStore.testModelInline({
+      provider: editingModel.value.provider || '',
+      model_name: editingModel.value.model_name || '',
+      api_key: editingModel.value.api_key,
+      api_base_url: editingModel.value.api_base_url,
+      max_tokens: editingModel.value.max_tokens,
+      temperature: editingModel.value.temperature,
+    })
+    inlineTestResult.value = result
+    if (result.success) ElMessage.success(`连接成功！延迟: ${result.latency_ms ?? '?'}ms`)
+    else ElMessage.error(`连接失败: ${result.error || ''}`)
+  } catch {
+    ElMessage.error('测试请求失败')
+  } finally {
+    testingInline.value = false
+  }
+}
+
 function openAdd() {
   isEdit.value = false
   editingModel.value = emptyForm()
+  inlineTestResult.value = null
   showDialog.value = true
 }
 
 function openEdit(model: ModelConfig) {
   isEdit.value = true
   editingModel.value = { ...model }
+  inlineTestResult.value = null
   showDialog.value = true
 }
 
@@ -94,7 +122,7 @@ onMounted(() => systemStore.loadModels())
       </el-table>
     </div>
 
-    <el-dialog v-model="showDialog" :title="isEdit ? '编辑模型' : '添加模型'" width="460px" append-to-body>
+    <el-dialog v-model="showDialog" :title="isEdit ? '编辑模型' : '添加模型'" width="460px" append-to-body :close-on-click-modal="false">
       <el-form :model="editingModel" label-width="100px" v-if="editingModel">
         <el-form-item label="名称" required><el-input v-model="editingModel.name" /></el-form-item>
         <el-form-item label="提供商">
@@ -109,9 +137,15 @@ onMounted(() => systemStore.loadModels())
         <el-form-item label="接口地址"><el-input v-model="editingModel.api_base_url" placeholder="https://api.openai.com/v1" /></el-form-item>
         <el-form-item label="最大 Token 数"><el-input-number v-model="editingModel.max_tokens" :min="1" :max="128000" /></el-form-item>
         <el-form-item label="随机性"><el-slider v-model="editingModel.temperature" :min="0" :max="2" :step="0.1" /></el-form-item>
+        <el-form-item v-if="inlineTestResult">
+          <el-text :type="inlineTestResult.success ? 'success' : 'danger'" size="small">
+            {{ inlineTestResult.success ? `✅ 连接成功，延迟 ${inlineTestResult.latency_ms ?? '?'}ms` : `❌ 连接失败：${inlineTestResult.error || '未知错误'}` }}
+          </el-text>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="showDialog = false">取消</el-button>
+        <el-button :loading="testingInline" @click="testInDialog">测试连接</el-button>
         <el-button type="primary" @click="saveModel">保存</el-button>
       </template>
     </el-dialog>

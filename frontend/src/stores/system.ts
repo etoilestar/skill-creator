@@ -89,6 +89,16 @@ export const useSystemStore = defineStore('system', () => {
     }
   }
 
+  async function testModelInline(data: Parameters<typeof configApi.testModelInline>[0]) {
+    try {
+      const res = await configApi.testModelInline(data)
+      return res.data
+    } catch (e) {
+      console.error(e)
+      throw e
+    }
+  }
+
   return {
     kernels,
     modelConfigs,
@@ -101,5 +111,6 @@ export const useSystemStore = defineStore('system', () => {
     deleteModel,
     activateModel,
     testModel,
+    testModelInline,
   }
 })

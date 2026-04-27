@@ -161,6 +161,51 @@ def activate_model(config_id: str):
     return jsonify({"message": f"配置 '{config.name}' 已激活", "config": config.to_dict()})
 
 
+@config_bp.route("/models/test", methods=["POST"])
+def test_model_inline():
+    """
+    使用请求体中的凭据直接测试模型连通性（无需已保存的配置 ID）。
+
+    适用于添加/编辑模型配置弹窗中的"测试连接"按钮，
+    在用户保存配置之前即可验证凭据是否有效。
+
+    Request Body (JSON):
+        provider:     str, 必填，提供商类型（openai/azure/local_openai_compat）
+        model_name:   str, 必填，模型名称
+        api_key:      str, 可选，API Key 明文
+        api_base_url: str, 可选，API 基础 URL
+        max_tokens:   int, 可选，默认 4096
+        temperature:  float, 可选，默认 0.7
+
+    Returns:
+        {success, latency_ms, error, model_info}
+    """
+    data = request.get_json(force=True) or {}
+
+    for field in ("provider", "model_name"):
+        if not data.get(field):
+            return jsonify({"error": {"code": "MISSING_FIELD", "message": f"缺少必填字段: {field}"}}), 400
+
+    class _InlineConfig:
+        """临时配置对象，无需持久化到数据库。"""
+        provider = data["provider"]
+        model_name = data["model_name"]
+        api_base_url = data.get("api_base_url") or None
+        max_tokens = int(data.get("max_tokens", 4096))
+        temperature = float(data.get("temperature", 0.7))
+        extra_params = data.get("extra_params") or {}
+
+    provider = ModelProviderFactory.create(_InlineConfig(), data.get("api_key", ""))
+    result = provider.test_connection()
+
+    return jsonify({
+        "success": result.success,
+        "latency_ms": result.latency_ms,
+        "error": result.error,
+        "model_info": result.model_info,
+    })
+
+
 @config_bp.route("/models/<config_id>/test", methods=["POST"])
 def test_model_connection(config_id: str):
     """

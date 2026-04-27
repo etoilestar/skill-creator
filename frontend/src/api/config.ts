@@ -31,4 +31,12 @@ export const configApi = {
   activateModel: (id: string) =>
     http.post<{ message: string; config: ModelConfig }>(`/config/models/${id}/activate`),
   testModel: (id: string) => http.post<ModelTestResult>(`/config/models/${id}/test`),
+  testModelInline: (data: {
+    provider: string
+    model_name: string
+    api_key?: string
+    api_base_url?: string
+    max_tokens?: number
+    temperature?: number
+  }) => http.post<ModelTestResult>('/config/models/test', data),
 }
