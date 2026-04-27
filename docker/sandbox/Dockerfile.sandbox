@@ -1,0 +1,24 @@
+# =====================================================================
+# 沙盒测试专用 Docker 镜像
+# 
+# 此镜像用于在隔离环境中执行 skill-creator 的 eval_description.py。
+# 设计原则：
+#   - 最小化镜像体积（使用 slim 版本）
+#   - 不安装任何不必要的工具
+#   - 运行时以非 root 用户身份执行（最小权限原则）
+#   - 默认入口为 Python 解释器（由 SandboxRunner 传入具体脚本路径）
+# =====================================================================
+
+FROM python:3.11-slim
+
+# 安装最小依赖（eval_description.py 只需要标准库，无需额外依赖）
+# 保留 pip 以便后续需要时安装依赖
+RUN pip install --no-cache-dir --upgrade pip
+
+# 创建非 root 用户运行脚本（最小权限原则）
+RUN useradd --create-home --shell /bin/bash sandbox
+USER sandbox
+WORKDIR /home/sandbox
+
+# 沙盒镜像不设置默认 CMD，由 SandboxRunner 在 docker run 命令中指定
+# 示例：docker run --rm ... skillfactory-sandbox:latest python3 /eval_script.py ...

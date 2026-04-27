@@ -1,0 +1,9 @@
+backend/app/workspace/
+backend/app/sandboxes/
+*.pyc
+__pycache__/
+*.egg-info/
+.pytest_cache/
+.env
+dev.db
+*.bak/
