@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { tasksApi, type Task } from '@/api/tasks'
 import { filesApi, type FileNode } from '@/api/files'
 import { useChatStore } from '@/stores/chat'
+import http from '@/api/http'
 
 export interface OpenFile {
   path: string
@@ -47,15 +48,20 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     }
   }
 
+  // Statuses where the workspace files are available (file tree should be loaded)
+  const WORKSPACE_STATUSES = new Set(['created', 'iterating', 'testing', 'passed', 'failed', 'test_error'])
+  // Statuses where polling should be active
+  const POLLING_STATUSES = new Set(['pending', 'creating', 'testing'])
+
   async function selectTask(id: string) {
     stopPolling()
     try {
       const res = await tasksApi.get(id)
       currentTask.value = res.data
-      if (res.data.status === 'created' || res.data.status === 'iterating') {
+      if (WORKSPACE_STATUSES.has(res.data.status)) {
         await loadFileTree()
       }
-      if (res.data.status === 'creating' || res.data.status === 'pending') {
+      if (POLLING_STATUSES.has(res.data.status)) {
         startPolling()
       }
       // Switch conversation session to the one linked to this task (if any)
@@ -79,7 +85,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
         // Keep task list in sync so the sidebar dropdown reflects status changes
         const idx = tasks.value.findIndex(t => t.id === res.data.id)
         if (idx !== -1) tasks.value[idx] = res.data
-        if (res.data.status === 'created' && prev !== 'created') {
+        if (WORKSPACE_STATUSES.has(res.data.status) && !WORKSPACE_STATUSES.has(prev)) {
           await loadFileTree()
         }
         // Refresh file tree while Celery is actively writing files
@@ -87,7 +93,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
           await loadFileTree()
         }
         await loadLogs()
-        if (res.data.status === 'created' || res.data.status === 'creation_failed') {
+        if (!POLLING_STATUSES.has(res.data.status)) {
           stopPolling()
         }
       } catch (e) {
@@ -222,6 +228,23 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     }
   }
 
+  async function runTest() {
+    if (!currentTask.value) return
+    try {
+      await http.post(`/tasks/${currentTask.value.id}/tests`)
+      // Refresh task status immediately and start polling for testing updates
+      const res = await tasksApi.get(currentTask.value.id)
+      currentTask.value = res.data
+      const idx = tasks.value.findIndex(t => t.id === res.data.id)
+      if (idx !== -1) tasks.value[idx] = res.data
+      stopPolling()
+      startPolling()
+    } catch (e) {
+      console.error(e)
+      throw e
+    }
+  }
+
   return {
     tasks,
     currentTask,
@@ -244,5 +267,6 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     updateFileContent,
     loadLogs,
     retryTask,
+    runTest,
   }
 })

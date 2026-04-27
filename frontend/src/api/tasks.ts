@@ -10,6 +10,8 @@ export interface Task {
   session_id?: string
   error_message?: string
   requirement_spec?: Record<string, unknown>
+  can_test: boolean
+  can_retry: boolean
 }
 
 export interface TaskLog {

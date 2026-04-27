@@ -54,15 +54,32 @@ async function retry() {
     </div>
 
     <div v-if="task.status === 'creation_failed'" class="failed-state">
-      <el-button type="danger" size="small" :loading="retrying" @click="retry">
+      <el-button type="danger" size="small" :loading="retrying" @click="retry" v-if="task.can_retry">
         <el-icon><RefreshRight /></el-icon> 重试
       </el-button>
       <el-button link size="small" @click="showLogs = !showLogs">{{ showLogs ? '隐藏' : '查看' }}日志</el-button>
       <div v-if="showLogs && logs" class="log-view"><pre>{{ logs }}</pre></div>
     </div>
 
-    <div v-if="task.status === 'created'" class="created-info">
-      <el-text type="success" size="small">✅ Skill 已就绪</el-text>
+    <div v-if="task.status === 'created' || task.status === 'iterating'" class="created-info">
+      <el-text type="success" size="small">✅ Skill 已就绪，可在「测试」标签页运行沙盒测试</el-text>
+    </div>
+
+    <div v-if="task.status === 'testing'" class="creating-state">
+      <el-icon class="is-loading"><Loading /></el-icon>
+      <span>沙盒测试运行中...</span>
+    </div>
+
+    <div v-if="task.status === 'passed'" class="created-info">
+      <el-text type="success" size="small">🎉 沙盒测试通过</el-text>
+    </div>
+
+    <div v-if="task.status === 'failed'" class="failed-state">
+      <el-text type="danger" size="small">❌ 沙盒测试未通过，请查看测试详情后修改 Skill</el-text>
+    </div>
+
+    <div v-if="task.status === 'test_error'" class="failed-state">
+      <el-text type="warning" size="small">⚠️ 沙盒测试执行异常，请检查环境后重试</el-text>
     </div>
 
     <div class="task-meta">

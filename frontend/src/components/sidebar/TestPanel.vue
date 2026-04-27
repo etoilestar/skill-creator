@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useWorkspaceStore } from '@/stores/workspace'
 import http from '@/api/http'
 import { ElMessage } from 'element-plus'
 
 const workspaceStore = useWorkspaceStore()
 const currentTask = computed(() => workspaceStore.currentTask)
-const canTest = computed(() => ['created', 'iterating'].includes(currentTask.value?.status || ''))
+const canTest = computed(() => currentTask.value?.can_test ?? false)
 
 interface TestRun {
   id: string
@@ -26,7 +26,7 @@ async function runTests() {
   if (!currentTask.value) return
   running.value = true
   try {
-    await http.post(`/tasks/${currentTask.value.id}/tests`)
+    await workspaceStore.runTest()
     ElMessage.success('测试已触发')
     await loadTests()
   } catch {
@@ -48,6 +48,16 @@ async function loadTests() {
     loading.value = false
   }
 }
+
+// Auto-refresh test list when task transitions to a terminal testing state
+watch(
+  () => currentTask.value?.status,
+  (newStatus) => {
+    if (newStatus === 'passed' || newStatus === 'failed' || newStatus === 'test_error') {
+      loadTests()
+    }
+  }
+)
 
 async function loadTestLogs(testId: string) {
   if (!currentTask.value) return

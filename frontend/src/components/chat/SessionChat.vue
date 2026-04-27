@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, nextTick, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { useChatStore } from '@/stores/chat'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -7,6 +8,7 @@ import { sessionsApi } from '@/api/sessions'
 
 const chatStore = useChatStore()
 const workspaceStore = useWorkspaceStore()
+const router = useRouter()
 
 const inputText = ref('')
 const messagesEl = ref<HTMLElement | null>(null)
@@ -72,6 +74,7 @@ async function confirm() {
     if (result?.id) {
       await workspaceStore.loadTasks()
       await workspaceStore.selectTask(result.id)
+      router.push(`/workspace/${result.id}`)
     }
   } catch {
     ElMessage.error('启动创建失败')
