@@ -7,6 +7,7 @@ export interface Task {
   created_at: string
   updated_at: string
   workspace_path?: string
+  session_id?: string
   error_message?: string
   requirement_spec?: Record<string, unknown>
 }

@@ -5,7 +5,7 @@ export interface ModelConfig {
   name: string
   provider: string
   model_name: string
-  api_key_configured?: boolean
+  has_api_key?: boolean
   api_base_url?: string
   max_tokens?: number
   temperature?: number

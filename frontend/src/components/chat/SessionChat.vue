@@ -42,8 +42,6 @@ async function send() {
 async function newSession() {
   try {
     await chatStore.createSession()
-    // 新建对话时立即在侧栏创建一个草稿任务，无需等待需求确认
-    await workspaceStore.createDraftTask()
   } catch { ElMessage.error('创建对话失败') }
 }
 

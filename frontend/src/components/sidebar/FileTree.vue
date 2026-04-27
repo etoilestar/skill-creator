@@ -74,6 +74,11 @@ async function newFile() {
     ElMessage.error('创建文件失败')
   }
 }
+
+function downloadZip() {
+  if (!currentTask.value) return
+  filesApi.download(currentTask.value.id)
+}
 </script>
 
 <template>
@@ -84,6 +89,9 @@ async function newFile() {
       </el-button>
       <el-button text size="small" @click="workspaceStore.loadFileTree()" :disabled="!currentTask">
         <el-icon><Refresh /></el-icon>
+      </el-button>
+      <el-button text size="small" @click="downloadZip" :disabled="!currentTask?.workspace_path" title="下载 ZIP">
+        <el-icon><Download /></el-icon>
       </el-button>
     </div>
     <div v-if="treeData.length === 0" class="tree-empty">

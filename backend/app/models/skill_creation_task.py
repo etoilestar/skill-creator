@@ -182,6 +182,8 @@ class SkillCreationTask(db.Model):
             "requirement_spec": self.requirement_spec,
             "kernel_id": self.kernel_id,
             "error_message": self.error_message,
+            "session_id": self.session.id if self.session else None,
+            "workspace_path": self.workspace_path,
             "can_test": self.status in self.TESTABLE_STATUSES,
             "can_retry": self.status in self.RETRYABLE_STATUSES,
             "created_at": self.created_at.isoformat() if self.created_at else None,

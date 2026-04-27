@@ -16,7 +16,9 @@ Skill 文件管理 API 蓝图。
     - 只允许操作对应 task_id 的工作区目录内的文件
 """
 
-from flask import Blueprint, current_app, jsonify, request
+from pathlib import Path
+
+from flask import Blueprint, current_app, jsonify, request, send_file
 
 from ...exceptions import (
     PathSecurityError,
@@ -26,6 +28,51 @@ from ...exceptions import (
 from ...services.file_service import FileService
 
 files_bp = Blueprint("files", __name__)
+
+
+@files_bp.route("/<task_id>/download", methods=["GET"])
+def download_workspace(task_id: str):
+    """
+    将指定任务工作区中的所有 Skill 文件打包为 ZIP 并提供下载。
+
+    Args:
+        task_id: SkillCreationTask ID
+
+    Returns:
+        ZIP 文件（application/zip），文件名为 <skill_name>.zip
+    """
+    import io
+    import zipfile as _zipfile
+
+    from ...models.skill_creation_task import SkillCreationTask
+
+    task = SkillCreationTask.query.get(task_id)
+    if task is None:
+        return jsonify({"error": {"code": "TASK_NOT_FOUND", "message": "任务不存在"}}), 404
+
+    workspace = task.workspace_path
+    if not workspace or not Path(workspace).is_dir():
+        return jsonify({"error": {"code": "WORKSPACE_NOT_FOUND", "message": "工作区不存在，请先完成 Skill 创建"}}), 404
+
+    workspace_path = Path(workspace).resolve()
+    buf = io.BytesIO()
+    with _zipfile.ZipFile(buf, "w", compression=_zipfile.ZIP_DEFLATED) as zf:
+        for file in workspace_path.rglob("*"):
+            if file.is_file():
+                arcname = file.relative_to(workspace_path)
+                zf.write(file, arcname)
+    buf.seek(0)
+
+    safe_name = (task.skill_name or task_id).replace("/", "_").replace("\\", "_")
+    filename = f"{safe_name}.zip"
+
+    return send_file(
+        buf,
+        mimetype="application/zip",
+        as_attachment=True,
+        download_name=filename,
+    )
+
 
 
 @files_bp.route("/<task_id>/files", methods=["GET"])

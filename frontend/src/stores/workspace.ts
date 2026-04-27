@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { tasksApi, type Task } from '@/api/tasks'
 import { filesApi, type FileNode } from '@/api/files'
+import { useChatStore } from '@/stores/chat'
 
 export interface OpenFile {
   path: string
@@ -56,6 +57,11 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       }
       if (res.data.status === 'creating' || res.data.status === 'pending') {
         startPolling()
+      }
+      // Switch conversation session to the one linked to this task (if any)
+      if (res.data.session_id) {
+        const chatStore = useChatStore()
+        try { await chatStore.loadSession(res.data.session_id) } catch { /* session may not exist */ }
       }
     } catch (e) {
       console.error(e)
