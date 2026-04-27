@@ -103,7 +103,7 @@ function downloadZip() {
       :data="treeData"
       node-key="id"
       :expand-on-click-node="false"
-      @node-click="(_: unknown, data: TreeNode) => handleNodeClick(data)"
+      @node-click="(data: TreeNode) => handleNodeClick(data)"
       class="tree-component"
     >
       <template #default="{ data }">
