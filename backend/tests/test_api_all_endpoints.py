@@ -518,9 +518,9 @@ class TestFiles:
 
     def test_read_file_success(self, client, app, tmp_path):
         tid, skill_dir = _create_task(app, tmp_path)
-        # workspace_root = workspace_path.parent (see FileService.get_workspace_root)
-        # so the SKILL.md lives at workspace_root/{task_id}/SKILL.md
-        rv = client.get(f"/api/v1/tasks/{tid}/files/{tid}/SKILL.md")
+        # workspace_root = workspace_path (see FileService.get_workspace_root)
+        # so the SKILL.md lives directly at workspace_root/SKILL.md
+        rv = client.get(f"/api/v1/tasks/{tid}/files/SKILL.md")
         assert rv.status_code == 200
         data = rv.get_json()
         assert "content" in data

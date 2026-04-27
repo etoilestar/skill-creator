@@ -86,13 +86,13 @@ class FileService:
 
     def get_workspace_root(self, task_id: str) -> Path:
         """
-        获取指定任务的工作区根目录路径。
+        获取指定任务的工作区根目录路径（即 skill 目录本身）。
 
         Args:
             task_id: SkillCreationTask ID
 
         Returns:
-            工作区根目录的 Path 对象。
+            Skill 目录的 Path 对象（workspace_path 直接指向 skill 目录）。
 
         Raises:
             TaskNotFoundError: 当任务不存在或工作区未初始化时
@@ -104,7 +104,7 @@ class FileService:
             raise TaskNotFoundError(
                 f"任务 {task_id} 的工作区尚未初始化，请先完成 Skill 创建"
             )
-        return Path(task.workspace_path).parent  # workspace/{task_id}/ 层
+        return Path(task.workspace_path)
 
     def list_files(self, task_id: str) -> List[FileNode]:
         """
@@ -126,7 +126,7 @@ class FileService:
         # workspace_path 在创建完成前为 None，返回空列表而非报错
         if not task.workspace_path:
             return []
-        workspace_root = Path(task.workspace_path).parent
+        workspace_root = Path(task.workspace_path)
         if not workspace_root.exists():
             return []
         return self._build_file_tree(workspace_root, workspace_root)
