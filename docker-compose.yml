@@ -51,8 +51,8 @@ services:
     volumes:
       # 内核目录：只读挂载，API 服务只读取内核内容
       - ./backend/kernels:/app/kernels:ro
-      # 工作区：API 服务可读取（文件管理接口）
-      - workspace_data:/app/workspace
+      # 工作区：绑定挂载宿主机 skill-data 目录，便于直接查看和备份 Skill 文件
+      - ./skill-data:/app/workspace
     depends_on:
       db:
         condition: service_healthy
@@ -94,8 +94,8 @@ services:
     volumes:
       # 内核目录：只读挂载
       - ./backend/kernels:/app/kernels:ro
-      # 工作区：Worker 需要写入生成的 Skill 文件
-      - workspace_data:/app/workspace
+      # 工作区：绑定挂载宿主机 skill-data 目录，Worker 需要写入生成的 Skill 文件
+      - ./skill-data:/app/workspace
       # 沙盒目录：Worker 需要创建临时测试目录
       - sandbox_data:/app/sandboxes
       # Docker socket：Worker 需要调用 docker run 启动沙盒容器
@@ -215,8 +215,6 @@ volumes:
     name: skillfactory_postgres_data
   redis_data:
     name: skillfactory_redis_data
-  workspace_data:
-    name: skillfactory_workspace_data
   sandbox_data:
     name: skillfactory_sandbox_data
 

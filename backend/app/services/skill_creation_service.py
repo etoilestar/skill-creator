@@ -84,21 +84,31 @@ class SkillCreationService:
             spec = task.requirement_spec or {}
             skill_name = task.skill_name or spec.get("skill_name", "unnamed-skill")
 
-            # Step 2: 生成 SKILL.md（含自动修正）
+            # Step 2: 检查 skill_name 目录是否已存在（防止同名覆盖）
+            from flask import current_app
+            workspace_base = current_app.config.get("WORKSPACE_BASE_PATH", "/app/workspace")
+            skill_dir_candidate = Path(workspace_base) / skill_name
+            if skill_dir_candidate.exists():
+                raise SkillGenerationError(
+                    f"Skill '{skill_name}' 已存在（目录 {skill_dir_candidate} 不为空），"
+                    "请在对话中使用不同的 Skill 名称后重试"
+                )
+
+            # Step 3: 生成 SKILL.md（含自动修正）
             skill_md_content = self._generate_skill_md_with_retry(
                 kernel, spec, skill_name, task_id
             )
 
-            # Step 3: 写入工作区
-            workspace_path = self._write_to_workspace(task_id, skill_name, skill_md_content)
+            # Step 4: 写入工作区
+            workspace_path = self._write_to_workspace(skill_name, skill_md_content)
 
-            # Step 4: 如需要脚本，生成 scripts/ 内容
+            # Step 5: 如需要脚本，生成 scripts/ 内容
             if spec.get("needs_scripts") and spec.get("script_requirements"):
                 self._generate_scripts(
                     kernel, spec, skill_name, workspace_path, task_id
                 )
 
-            # Step 5: 更新任务状态为 CREATED
+            # Step 6: 更新任务状态为 CREATED
             task.status = SkillCreationTask.STATUS_CREATED
             task.workspace_path = workspace_path
             task.skill_name = skill_name
@@ -232,17 +242,16 @@ class SkillCreationService:
             return kernel.validate_skill_structure(str(skill_dir))
 
     def _write_to_workspace(
-        self, task_id: str, skill_name: str, skill_md_content: str
+        self, skill_name: str, skill_md_content: str
     ) -> str:
         """
-        将生成的 SKILL.md 写入用户工作区。
+        将生成的 SKILL.md 写入工作区（skill-data 根目录下以 skill_name 命名的目录）。
 
         工作区路径规范：
-            WORKSPACE_BASE_PATH/{task_id}/{skill_name}/SKILL.md
+            WORKSPACE_BASE_PATH/{skill_name}/SKILL.md
 
         Args:
-            task_id: 任务 ID（作为工作区子目录名）
-            skill_name: Skill 名称（作为 Skill 目录名）
+            skill_name: Skill 名称（作为工作区根目录下的子目录名）
             skill_md_content: SKILL.md 文件内容
 
         Returns:
@@ -251,7 +260,7 @@ class SkillCreationService:
         from flask import current_app
 
         workspace_base = current_app.config.get("WORKSPACE_BASE_PATH", "/app/workspace")
-        skill_dir = Path(workspace_base) / task_id / skill_name
+        skill_dir = Path(workspace_base) / skill_name
         skill_dir.mkdir(parents=True, exist_ok=True)
 
         skill_md_path = skill_dir / "SKILL.md"
